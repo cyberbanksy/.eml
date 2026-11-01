@@ -16,6 +16,8 @@ pytest -v        # verbose
 pytest -k e2e    # only E2E tests
 ```
 
+To use an existing Chromium instead of Playwright's download, set `DOTEML_CHROMIUM_PATH=/path/to/chrome`.
+
 ## Lint
 
 ```bash
