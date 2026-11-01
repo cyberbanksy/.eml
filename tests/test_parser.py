@@ -72,14 +72,80 @@ class TestParseEncoded:
 class TestParseLegoland:
     def test_parses_real_email(self, legoland_eml: Path) -> None:
         result = parse_eml(legoland_eml)
-        assert "LEGOLAND" in result.from_ or "legoland" in result.from_.lower() or "email.legoland.com" in result.from_.lower() or result.from_ != ""
+        assert "LEGOLAND" in result.from_
         assert result.subject != ""
         assert result.html_body != "" or result.text_body != ""
 
     def test_subject_decoded(self, legoland_eml: Path) -> None:
         result = parse_eml(legoland_eml)
-        assert "Ends Tonight" in result.subject or "Save BIG" in result.subject or "Tickets" in result.subject
+        assert (
+            "Ends Tonight" in result.subject
+            or "Save BIG" in result.subject
+            or "Tickets" in result.subject
+        )
 
     def test_has_date(self, legoland_eml: Path) -> None:
         result = parse_eml(legoland_eml)
         assert "2026" in result.date or "Nov" in result.date
+
+    def test_message_id(self, legoland_eml: Path) -> None:
+        assert parse_eml(legoland_eml).message_id
+
+
+def _write(tmp_path: Path, raw: str) -> Path:
+    path = tmp_path / "m.eml"
+    path.write_bytes(raw.replace("\n", "\r\n").encode())
+    return path
+
+
+class TestParseEdgeCases:
+    def test_unknown_charset_does_not_crash(self, tmp_path: Path) -> None:
+        path = _write(
+            tmp_path,
+            "From: a@example.com\nSubject: x\n"
+            "Content-Type: text/plain; charset=x-nonsense\n\nhello world\n",
+        )
+        assert "hello world" in parse_eml(path).text_body
+
+    def test_forwarded_message_does_not_replace_body(self, tmp_path: Path) -> None:
+        path = _write(
+            tmp_path,
+            "From: a@example.com\nSubject: Fwd\nMIME-Version: 1.0\n"
+            'Content-Type: multipart/mixed; boundary="B"\n\n'
+            "--B\nContent-Type: text/html\n\n<p>outer body</p>\n"
+            "--B\nContent-Type: message/rfc822\n\n"
+            "From: b@example.com\nSubject: inner\nContent-Type: text/html\n\n<p>INNER body</p>\n"
+            "--B--\n",
+        )
+        result = parse_eml(path)
+        assert "outer body" in result.html_body
+        assert "INNER" not in result.html_body
+        assert [a.filename for a in result.attachments] == ["forwarded.eml"]
+
+    def test_attachments_are_listed(self, tmp_path: Path) -> None:
+        path = _write(
+            tmp_path,
+            "From: a@example.com\nSubject: att\nMIME-Version: 1.0\n"
+            'Content-Type: multipart/mixed; boundary="B"\n\n'
+            "--B\nContent-Type: text/plain\n\nbody\n"
+            "--B\nContent-Type: text/calendar\n"
+            'Content-Disposition: attachment; filename="invite.ics"\n\nBEGIN:VCALENDAR\n'
+            "--B\nContent-Type: application/pdf\n"
+            'Content-Disposition: attachment; filename="doc.pdf"\n'
+            "Content-Transfer-Encoding: base64\n\nJVBERi0=\n"
+            "--B--\n",
+        )
+        result = parse_eml(path)
+        assert result.text_body.strip() == "body"
+        assert [a.filename for a in result.listed_attachments] == ["invite.ics", "doc.pdf"]
+
+    def test_extra_headers(self, tmp_path: Path) -> None:
+        path = _write(
+            tmp_path,
+            "From: a@example.com\nTo: b@example.com\nBcc: c@example.com\n"
+            "Reply-To: r@example.com\nMessage-ID: <abc@example.com>\nSubject: h\n\nx\n",
+        )
+        result = parse_eml(path)
+        assert result.bcc == "c@example.com"
+        assert result.reply_to == "r@example.com"
+        assert result.message_id == "<abc@example.com>"
