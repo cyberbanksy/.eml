@@ -1,0 +1,589 @@
+Return-path: <bounce@example.com>
+Original-recipient: rfc822;user@example.com
+Received: from p00-icloudmta-smtpin-us-west-2a-20-percent-0 by p107-mailgateway-smtp-54c7c6cb45-45k4s (mailgateway 2642B156)
+	with SMTP id 722ddf6f-76ef-4ae3-9ac9-c27b60560dd3 
+	for <user@example.com>; Sun, 1 Nov 2026 22:46:58 GMT
+X-Apple-MoveToFolder: INBOX 
+X-Apple-Action: MOVE_TO_FOLDER/INBOX
+X-Apple-UUID: 722ddf6f-76ef-4ae3-9ac9-c27b60560dd3
+Received: from mta2.email.merlinentertainments.com (mta2.email.merlinentertainments.com [161.71.74.7])
+	by p00-icloudmta-smtpin-us-west-2a-20-percent-0 (Postfix) with ESMTPS id A0590C00087
+	for <user@example.com>; Sun, 01 Nov 2026 22:46:55 +0000 (UTC)
+X-ICL-RepId: 01a1994b-5cf7-70f6-aca6-a8f86df07252
+X-ICL-Info: GAtbRVYDBVFFSlVFSgQEUVUKE0oWX1gHVQoPB0UBAFNbTldZTwQYVVUcAkoaX0MMFhxLLUtpYTohNlJBLQRjODtOKERMAnkpPU88Oz0eA1JFSVdAOFJZFxsaA1kdXVcLGVcLEgpcXwwQFxISCkRXCxsUAxkMQxgBGhRGERwNUw8UEApZFFVRDRkYCBNWU1kPVQsFShBfWgYQCzkVF1RfARBXVh44WVUOGgwCWRtfW0IdHAoYRV1CA0dXAxoZWVpMGBwUGxFeUwwBHBQDGVlYDxAXEgRWU1kPVQkSBUVdQgNHVwMaGVlaTBgcFBsRXlMMARwUAxlZWA8QFxIEVlNZD1UdAkodXVcLGVcKEh9fWgMbHUgUF10NEUBJSA5WXVVMBhgKEgtWWRAWHEgUF10WDxwdW0sbAARVRBgDQVVVBQMXVFJBSVYbA0UbUFobAgUEEElUEkxRAlU1HxQWS0MDUhgNB0dACA9MDQ1IGxdTVw5L
+X-ICL-Score: 2.33303322423
+Authentication-Results: bimi.icloud.com; bimi=none
+X-ARC-Info: policy=fail; arc=none; r1=-20; r2=0
+Authentication-Results: arc.icloud.com; arc=none
+Authentication-Results: dmarc.icloud.com; dmarc=pass header.from=email.legoland.com
+X-DMARC-Policy: v=DMARC1; p=reject; adkim=r; aspf=r; pct=100;
+X-DMARC-Info: pass=pass; dmarc-policy=reject; s=r0; d=r1; pdomain=email.legoland.com
+Authentication-Results: dkim-verifier.icloud.com; dkim=pass header.d=email.legoland.com header.i=california@email.legoland.com header.b=WMa7g7Va
+Authentication-Results: dkim-verifier.icloud.com; dkim=pass header.d=s50.y.mc.salesforce.com header.i=@s50.y.mc.salesforce.com header.b=NoVOc5YS
+Received-SPF: pass (spf.icloud.com: domain of bounce-Z3YWXTO46U4UZN7N342OKH6ZLE.500017@bounce.email.merlinentertainments.com designates 161.71.74.7 as permitted sender) receiver=spf.icloud.com; client-ip=161.71.74.7; helo=mta2.email.merlinentertainments.com; envelope-from=bounce-Z3YWXTO46U4UZN7N342OKH6ZLE.500017@bounce.email.merlinentertainments.com
+Authentication-Results: spf.icloud.com; spf=pass (spf.icloud.com: domain of bounce-Z3YWXTO46U4UZN7N342OKH6ZLE.500017@bounce.email.merlinentertainments.com designates 161.71.74.7 as permitted sender) smtp.mailfrom=bounce-Z3YWXTO46U4UZN7N342OKH6ZLE.500017@bounce.email.merlinentertainments.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; s=50dkim1; d=email.legoland.com;
+ h=From:To:Subject:Date:List-Unsubscribe:List-Unsubscribe-Post:MIME-Version:
+ Reply-To:Message-ID:Content-Type:Content-Transfer-Encoding;
+ i=california@email.legoland.com;
+ bh=yLZ0dZ+d4wMhO29IsudD2Wem2eK0RklTCs1+QZA3fCA=;
+ b=WMa7g7VaB2X0vw4v0kAFkCs46A7SpE2eVD9dkM+qfjeHalajtLO9fCTt3/oBgmEQ2LCQhcq3L0Id
+   wMkvhoC/2HCTUB3ju9eZjtAEjJkZifc8Bo57zhX4zOToYKEC1l5dtxosYxAuDet7C/w58KqPXlz4
+   QJvvMZ13c7fQ9EXT+YnJJ/Dwx28BfWgj5fXiZRauDzC/8aOMeYBO304xFnYrpDn6oghFiSd6iFXi
+   nb02aM0Sc1v74QXCa4TYheVYknY/E7lp963oo9q0qt/VO9BeNRfl/1f/N8YkWHdW/XZx5od6VA6s
+   ZPyOGca3Adc84bvSCjV1W5QtRCT05eToOCQIKQ==
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; s=fbldkim50; d=s50.y.mc.salesforce.com;
+ h=From:To:Subject:Date:List-Unsubscribe:List-Unsubscribe-Post:MIME-Version:
+ Reply-To:Message-ID:Content-Type:Content-Transfer-Encoding;
+ bh=yLZ0dZ+d4wMhO29IsudD2Wem2eK0RklTCs1+QZA3fCA=;
+ b=NoVOc5YS+yT1+uxrbKT00+phmZz71qdlv/5w+HAmlqT4avwCn1hyA4h60wxRqzYjRPo+6AGZMpvb
+   5684A3sugNvSZlRigiSmWOZu7vZmf54TYDgil4kHhjMfeLMRsnuEDpeR9rRsMCg12J02erB/lDGD
+   CT0J3YnANIUeGxH5ib+ADGXZlDj0rdLkom8d/uIHz/+yJhq8V8gCrH7pKCbHbs02X1UzNJfNqJ8w
+   eKhWgO96SxyFkEtIUGjSWwxP0DR6aHWQBzjzO+xriARtQtO3OQoIPkCBNwhOcMVTmX33mXLZnb35
+   To4TO/cLioDyYmE/tYTJ2pye5gi7NRed9Ik15Q==
+Received: by mta2.email.merlinentertainments.com id hsv0lq39mjcu for <recipient@example.com>; Sun, 1 Nov 2026 22:46:53 +0000 (envelope-from <bounce-Z3YWXTO46U4UZN7N342OKH6ZLE.500017@bounce.email.merlinentertainments.com>)
+From: =?UTF8?Q?LEGOLAND=C2=AE_California_Resort?= <california@email.legoland.com>
+To: Hide My Email <recipient@example.com>
+Subject: =?UTF-8?B?RW5kcyBUb25pZ2h0IC0gU2F2ZSBCSUcgb24gVGlja2V0cyDwn5qo?=
+Date: Sun, 01 Nov 2026 16:46:52 -0600
+MIME-Version: 1.0
+Reply-To: =?UTF-8?Q?LEGOLAND=C2=AE_California_Resort?=
+ <reply@example.com>
+X-SFMC-Stack: 50
+x-job: 500009520_1719132
+Message-ID: <c0271ae6-e3ab-461f-a0b6-c23fe02e4a47@fra3s50mta0889.xt.local>
+Content-Type: text/html;
+	charset="utf-8"
+Content-Transfer-Encoding: 8bit
+X-MANTSH: 1TFkXHhgRCllEF2UfG0UBRkNSW3BJEQpZTRdkRURPEQpZSRcacRoQGncGGBhxHxo
+ bEBkaG3cGGBoGGhEKWV4XbGx5EQpDThdvQHB6cmx7fntoS01waW8HWHVYEhx7c0xhWGB4cm9iW
+ BEKWFwXGQQaBB8SBRsaGgQSGAQbHxIEGBIQGx4aHxoRCl5ZF0NifXIdEQpNXBceGh8RCkxaF2l
+ CZRpBXREKTEYXY01rEQpDWhcbHBsEHRsEHR4EHREKQl4XGxEKQkYXaV5/UBweG1NNUxwRCkJHF
+ 2dsfEdZHQVdT2trEQpCXBcbEQpCSxdgHUZDX2VFbllLQhEKQkkXbh9zexx8eX9Qf2IRCkJFF3p
+ OaURSBXNuQ2cTEQpCThduH3N7HHx5f1B/YhEKQkwXaGluWRpSSHNlYW0RCkJsF2hOTVNLSVJDX
+ B1+EQpCQBdsXV1uBR5yU15haxEKQlgXemV4Y2FQeEduEk4RClpYFxsRCnBnF2RhSG5nYF0ZUm5
+ OEBoRCnBoF2FMflByRVxveR9SEBsSEQpwaBdiYwVOXnJTHlJBRhAYGREKcGgXZRhMflMTeVMZf
+ 0kQGxIRCnBoF2MZQn9cElAfaEIeEBsSEQpwaBdpRE9hTXhCWkIfXBAHHhIRCnBoF21HXxNta1l
+ SQltcEAceEhEKcGgXZ1h8TFp6ckVteFIQGxIRCnBoF21ZZV5zGEtaQUNeEBsSEQpwfxdjTlBdY
+ 0RgH0JgHhAZEQpwXxdmUGZSRVJlRG9NGBAaEQpwfRdpfn1BGGYTbVBbWBAaEQpwfRdsUkF/eGV
+ cZx5nHxAaEQpwXxdobUFJZUAdHnxQTRAHGxgRCnB9F2BjTBhtQWxjH2hNEBkaEQpwfRdgY0wYb
+ UFsYx9oTRAZGhEKcH0XZ2FSWmBJWAF8YVoQGhEKcH0XbF5rcnpgUG5EQ24QGhEKcH0XYUBIZVp
+ YQHJQRUkQGhEKcH0XYkNoYgVoQWl9HWYQGhEKcH0XbGMYaR1iGU1sbmUQGhEKcH0XYmBkWloFR
+ H9CZWMQGhEKcH0XY0BOQXJIQEFLaWYQGhEKcH8XbHhOaFIdW21Aeh8QBx8aEQpwXxdgRxpSTmV
+ 9Q2ZocxAaEQpwfRduRFNGHx1FckQdRBAaEQpwfRdjWWIbfltEAUNfQBAaEQpwfRdkfWFIYn5/e
+ RoYRRAaEQpwfRduSFwFTx14R1JTeBAaEQpwfRdvTE9QYVpsSRwZWhAaEQpwfRdtXHpaTh4TXkh
+ GGBAaEQpwfRdtXHp5ZQFOflljUBAaEQpwfRdlRURPZlxGSVxGfRAaEQpwfRdkXU9BewEefFgcW
+ hAaEQpwXxdgc01zaWhiGXkecBASBB8RCnB9F2sZTmdYTEVEcBxnEAcbGBEKcH0XZRNTemBMWV0
+ Yax4QGhEKcH0XbF9nTlx7eV5BaRwQGhEKcH0XY1gbE3IaYE9tE0wQGhEKcH0XYl9+fWFZQ214e
+ 1MQBxsYEQpwfRdoQ2ZYeUFFbUVHXBAaEQpwfRdpb1JkWEB8fERNZhAeEhEKcH0XZE8bHGMSU2N
+ IXnsQGhEKcH0XaRtCbGlPYlNuc2EQBxsSEQpwZxdiSEFBXk4dZX5FfBAHGRoRCnB9F2l9cE57W
+ mdsYmFoEBoRCnBfF2R7eFJ+BU8FcEFQEAcZGhEKcH0XaFBgHVx8aR4eTXAQGhEKcGwXaWddGwF
+ ZGURSQwUQGhEKbX4XGhEKWE0XSxE=
+X-Proofpoint-GUID: EjZPXFQTQBagZCE-r_r86QYfKrJRXEHr
+X-Proofpoint-Spam-Details-Enc: AW1haW4tMjYxMTAxMDA5MCBTYWx0ZWRfX3jxhiLGR5S98
+ suMCwzs4Bh07n/UOX63SKOOFo7SF8ymXlOZyKuH6R97pgqqu0Ul7dUhkITZ3pNwdhtD0PHscJjK
+ AyEERqjcZh9VYm18kbTtwxIUABShPD8kR3nC9WyvYUO3mslELD/Ie7F/qcEg7RZgYHzNdQ3TLzS
+ hD61RhlZXY8wZnnji52GEA5U3VuKUJPpC6DACBPiMheOMQe1Ius7Fl+LcMOabBJAP9F/4P+Vsgx
+ vpVwpTn1EQPnnIlFg7QEMZKDbViRfmWkRmcRzYpSAHmSe1sRP6FOh5PztIHzI6pfdiC5moy7moV
+ ZwOIdRWyHTDfgMrwpW8g8RTwukpW9XcXNKs19M0VkLxFt/xzHqKq/WEIe/rCGKOrDKBNtfA+2/b
+ +FV4sUaIGESp3sThQ/uitZgwGT+bo35u9hrlxEukTK58vCUtcZX+mtCQtIhYNydlQnkz97/b
+X-Authority-Info: v=2.4 cv=Sbz6t/Ru c=1 sm=1 tr=0 ts=6ae7c160 b=1
+ cx=c_apl:c_pps a=pPhpb9oHVle/Vw+SPfZ/1g==:117 a=pPhpb9oHVle/Vw+SPfZ/1g==:17
+ a=RceTN3vQYlyzf1GH:21 a=IkcTkHD0fZMA:10 a=zJRp6_cAMcgA:10 a=5KLPUuaC_9wA:10
+ a=M51BFTxLslgA:10 a=NQ3ZA9vkX84A:10 a=gfDJ4Lus4fEA:10 a=lR8nCib_AAAA:8
+ a=4iomZyAGAAAA:8 a=490pxwCeAAAA:8 a=SSmOFEACAAAA:8 a=j1Otcw1wAAAA:8
+ a=PHYCXEOtVjro0gvtyRMA:9 a=kULN-ISWxw52xmWS:21 a=gKO2Hq4RSVkA:10
+ a=frz4AuCg-hUA:10 a=_W_S_7VecoQA:10 a=lqcHg5cX4UMA:10 a=3ZKOabzyN94A:10
+ a=QEXdDO2ut3YA:10 a=s_KHD6aHcoUgXWm27CaZ:22 a=Ru97nHiPDtp4odn3vKgu:22
+ a=aJAq4udIoyUd0EckR2CD:22 a=7CA8dZb2Okr9DKuuna8z:22 a=gaSoRgd2Nfq3KNJFyFPa:22
+ a=MZGWgC_kJKFVycHs3ZFL:22 cc=prm
+X-Proofpoint-ORIG-GUID: EjZPXFQTQBagZCE-r_r86QYfKrJRXEHr
+X-JNJ: AAAAAAABl0o2uz3uPprRBqEMaJ0KlA1cR0KG1Hdl3Ir4QqIuIietlvEK1wPEF0JXoEWTO5
+ aIuvmzS757IyN/TpWLVfgsNPyOKPbQwqQ45gAtcGAX1wplm7CNaao6yiM+P1ZQVc9uur/H
+ vwRb27uYW1EDydRImwmnr3ruSkx8z0VkJU+g0BLgivNh8pjCllA+MXidmejjX5O44Q6JF1
+ 8NV6hh4a6q1FuHMT6g1LcHQfVGPt6wyhDhS3d6ukmmsvdEVFFxuB6e/+2fDhNaKiR1mzWl
+ u62frhE0RECSLJSVChECpHDS5kR5QhkgOx1LvyMAg4ynPU6OHIocZYIzRK260Bomd5qTXW
+ VCxJ18NIAC5n2lnAFyr7KtabH+6p1wI5dXrBY0o2QAVZLT1s3tD7dx5DHqiQQE4bCBg619
+ BSNxsnbPEPYA7iSC6ZNFivIFiQ8vBhZtaSLniRR4Ctn8EZIiHJv4QWgNQULLYgUHqekdaa
+ nE8yIHRUekvQ7m3byDJmjqwmxaVVDwQloLZLSoQkFvCvpiLqsK/L8MbqUbmRGHzEWX25lL
+ Mrbp6R+bj32+hcTBL9gW0moeL3nC6rH2627nMlvq0GanHzbwQdq/dwUqa/3uPoKrvMf686
+ E2Dw7M8WKznrwz2BcZ+Kf38mA3/L9AdDnPgc1zaZmOFcTWrdTVcZ9TihivJS/duQTgpnoH
+ JUDXlHDLBHfjERyqShe/JGWgQ38WMcVC6IlBWsXsxDgSPgPRYLretzyUEMvULpcC6/Sr5d
+ rLN9msTLrIDMNMlBklukZgOv5OXC6q9/2ijH5R9tuv7lSWfffJZz9sUVBO9w/fg4yTYTsf
+ YQ2QmQWnunWTIocCrJ+3n/xVSpBspGw6ZK107vMylU4xszUxrDogBPFVKl4pd8Vg8ihaR8
+ kfzbJYrtnuUlFShlFdphtPvTqatcMLlngZR+Kncfk=
+X-ICLOUD-HME: p=recipient@example.com; d=attractions.io; f=user@example.com; r=to; s=california@email.legoland.com
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html lang="en" xml:lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:v="urn:schemas-microsoft-com:vml">
+ <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <!--[if !mso]><!-->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <!--<![endif]-->
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, target-densitydpi=device-dpi" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>Merlin Entertainments</title>
+  <style type="text/css">
+   /* import custom fonts */
+   @import url('https://assets.prod.ibn.host/Merlin/Template/fonts/merlin_fonts.css');
+
+   body {
+    width: 100% !important;
+   }
+
+   .ReadMsgBody,
+   .ExternalClass {
+    width: 100%;
+    display: block !important;
+   }
+
+   table,
+   table td {
+    border-collapse: collapse;
+    mso-table-lspace: 0pt;
+    mso-table-rspace: 0pt;
+   }
+
+   #backgroundTable {
+    margin: 0px;
+    padding: 0px;
+    width: 100% !important;
+   }
+
+   img {
+    display: block;
+   }
+
+   button {
+    display: block;
+   }
+
+   a[href^='tel'],
+   a[href^='sms'] {
+    color: inherit;
+    cursor: default;
+    text-decoration: none;
+   }
+
+   a[x-apple-data-detectors] {
+    color: inherit !important;
+    text-decoration: none !important;
+    font-size: inherit !important;
+    font-family: inherit !important;
+    font-weight: inherit !important;
+    line-height: inherit !important;
+   }
+
+   .mobile {
+    display: none;
+    font-size: 0;
+    max-height: 0;
+    line-height: 0;
+    margin: 0;
+    padding: 0;
+    mso-hide: all;
+   }
+
+   .mobile img {
+    max-height: 0;
+    width: 0;
+   }
+
+   @media only screen and (max-width: 520px) {
+    u + .body .wrapper {
+     width: 100% !important;
+     width: 100vw !important;
+    }
+
+    .wrapto100pc {
+     width: 100% !important;
+     clear: both !important;
+     float: left !important;
+    }
+
+    .wrapto50pc {
+     width: 50% !important;
+     display: table-cell !important;
+     vertical-align: middle !important;
+    }
+
+    .image100pc {
+     width: 100% !important;
+     height: auto !important;
+     max-width: none !important;
+    }
+
+    .hide {
+     display: none !important;
+    }
+
+    .cta {
+     width: 300px !important;
+    }
+
+    .cta * {
+     font-size: 17px !important;
+    }
+
+    .nav {
+     padding: 0px 10px !important;
+     font-size: 17px !important;
+    }
+
+    /* left nav link cells keep vertical padding on mobile so the bar has its
+       own height and does not collapse when the ticket column (nav link 4)
+       is hidden - the ticket text stays .nav so it is not inflated */
+    .navmain {
+     padding: 12px 10px !important;
+    }
+
+    .padtop20 {
+     padding-top: 20px !important;
+    }
+
+    .padtop10 {
+     padding-top: 10px !important;
+    }
+
+    .padbottom35 {
+     padding-bottom: 35px !important;
+    }
+
+    .pad20 {
+     padding-left: 20px !important;
+     padding-right: 20px !important;
+    }
+
+    .pad30 {
+     padding-left: 30px !important;
+     padding-right: 30px !important;
+    }
+
+    .stack {
+     padding-bottom: 40px !important;
+    }
+
+    .centercopy {
+     text-align: center !important;
+    }
+
+    .noborder {
+     border: none !important;
+    }
+
+    .autoheight {
+     height: auto !important;
+    }
+
+    .heading1 {
+     font-size: 48px !important;
+     line-height: 56px !important;
+    }
+
+    .mobile {
+     display: block !important;
+     max-height: none !important;
+     margin: 0px !important;
+     font-size: inherit !important;
+     line-height: inherit !important;
+    }
+
+    .mobile img {
+     width: 100% !important;
+     height: auto !important;
+     max-height: none !important;
+     max-width: 100% !important;
+    }
+   }
+  </style>
+  <!--[if gte mso 9]>    <xml>     <o:OfficeDocumentSettings>      <o:AllowPNG />      <o:PixelsPerInch>96</o:PixelsPerInch>     </o:OfficeDocumentSettings>    </xml>   <![endif]-->
+  <!--       -->
+ </head>
+
+ <body   class="body darkmodewrapper"   bgcolor="#ffffff"   topmargin="0"   leftmargin="0"   marginheight="0"   marginwidth="0"   style="    -webkit-font-smoothing: antialiased;    width: 100% !important;    min-width: 100%;    background-color: #ffffff;    background-image: url('');    background-repeat: no-repeat;    background-position: center top;    background-size: cover;    -webkit-text-size-adjust: none;    padding: 0;   "  >
+  <style type="text/css">
+div.preheader 
+{ display: none !important; } 
+</style>
+<div class="preheader" style="font-size: 1px; display: none !important;">Get Kids Tickets From $39 Including Christmas Bricktacular Event Dates!</div>
+  <!-- Default the dark-mode background to the light colour when the page background block did not set one. -->
+  <!--  -->
+  <!-- Dark-mode background override. In the body (not <head>) so @bgColourDark,        which is set just above by the page background slot, is already resolved;        !important beats the inline background-color on the .darkmodewrapper elements. -->
+  <style type="text/css">
+   @media (prefers-color-scheme: dark) {
+    .darkmodewrapper {
+     background-color: #ffffff !important;
+    }
+   }
+  </style>
+  <div    class="darkmodewrapper"    style="     background-color: #ffffff;     background-image: url('');     background-repeat: no-repeat;     background-position: center top;     background-size: cover;    "   >
+   <!--[if gte mso 9]>     <v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="t">      <v:fill type="tile" src="" color="#ffffff" />     </v:background>    <![endif]-->
+   <table     role="presentation"     class="wrapper darkmodewrapper"     height="100%"     width="100%"     cellpadding="0"     cellspacing="0"     border="0"     style="      background-color: #ffffff;      background-image: url('');      background-repeat: no-repeat;      background-position: center top;      background-size: cover;     "    >
+    <tr>
+     <td valign="top" align="center" background="" style="background-size: contain; background-repeat: no-repeat">
+      <!-- fixed-width inner container added to keep blocks within 600px -->
+      <table        role="presentation"        width="600"        cellpadding="0"        cellspacing="0"        border="0"        align="center"        style="max-width: 600px; width: 100%; background-color: #ffffff"       >
+       <!--  -->
+       <tr>
+        <td align="center">
+         <!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<table role="presentation" class="wrapto100pc darkmode" width="600" cellpadding="0" cellspacing="0" border="0" align="center" bgcolor="#ffffff" style="background-color: #ffffff; width: 600px">
+<tr>
+<td style="font-family: Lato, Arial, sans-serif; color: #000000; font-size: 12px; font-weight: normal; text-align: center; line-height: 18px; padding: 18px 0px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHrUcRNxGwnMW9Ih0IRxIv7gQCMyxZ5UKkfTKKHPrGGJntduYtwGcgckV-bOttIjKjU0QxO31gVN6Iin_9VUn5l4xJiosLViRdLxtcqA" target="_blank" style="color: #000000; text-decoration: none" >Can't see our bricktastic images? <u>Click here</u> to view in browser.</a></td>
+</tr>
+</table></td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<!--  -->
+<style type="text/css">
+	@media (prefers-color-scheme: dark) {
+		.mln-hdr { background-color: #175919 !important; }
+		.mln-logo-light { display: none !important; }
+		.mln-logo-dark { display: inline-block !important; }
+	}
+</style>
+<table role="presentation" class="wrapto100pc darkmode mln-hdr" width="600" cellpadding="0" cellspacing="0" border="0" align="center" bgcolor="#175919" style="background-color: #175919; width: 600px">
+	<tr>
+		<td align="center" style="padding-top: 18px; padding-bottom: 18px; padding-left: 30px; padding-right: 30px">
+			<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+				<tr>
+					<td align="center"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHrgueif1NXQntZGl6m1LRhXi5EUVESSsoUXGosrBwS0M6h90uPM0QR3oC7cZdgecF45gnfXpQEvwou4iRpByLPWlMvehEjlZ2k5sn64dT1Ws" target="_blank" ><img class="mln-logo-light" src="https://image.email.merlinentertainments.com/lib/fe3a117075640474701670/m/6/LCA_Logo_WhiteText.png" alt="LEGOLAND" width="153" border="0" style="display: block; max-width: 153px"><!--[if !mso]><!--><img class="mln-logo-dark" src="https://image.email.merlinentertainments.com/lib/fe3a117075640474701670/m/6/LCA_Logo_WhiteText.png" alt="LEGOLAND" width="153" border="0" style="display: none; mso-hide: all; margin: 0 auto; max-width: 153px"><!--<![endif]--></a></td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table></td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<table role="presentation" class="wrapto100pc darkmode" width="600" cellpadding="0" cellspacing="0" border="0" align="center" bgcolor="#175919" style="background-color: #175919; width: 600px">
+	<tr>
+		<td align="center" style="padding: 0px">
+			<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+				<tr>
+					<td class="nav navmain" align="center" style="font-family: Lato, Arial, sans-serif; font-size:14px; color: #ffffff; text-align:center; line-height:21px; padding: 12px 15px;"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHr1VyYDXswJieMzmq-JshxaOQPPr3YmyFzdnapqZpxS2SqX5xt2NlvPDTXMnIQ0czRBtvo16ePdpbTyH3d27g-7XtpwHJrqboROOtMIHCWw4" target="_blank" style="color: #ffffff; text-decoration:none;" ><b>Tickets</a></td>
+					<td class="hide" align="center" style="font-family: Lato, Arial, sans-serif; font-size:14px; color: #ffffff; text-align:center; line-height:21px; padding: 12px 15px;"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHsEPZ2hrjCZb52DUqSt5IA6BzWsLz9HuAcVQ_HR3fjKcqAmA9en5ut-1QxbedtZB5uBavCy4QkR47-2vNGi0h6YorBY3Vh2_50XEoJ6cy7Dw" target="_blank" style="color: #ffffff; text-decoration:none;" ><b>Hotel</a></td>
+					<td class="hide" align="center" style="font-family: Lato, Arial, sans-serif; font-size:14px; color: #ffffff; text-align:center; line-height:21px; padding: 12px 15px;"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHsaAOSsftLGo4monZc_o1emkmuE03ULq5-JUhGbCKIu7aj92t_zS2ZWwQo4Tf4evP-yUdGTyhW4FlePBSfE-WgRtlv7iFcVF7v6ZI4Rnzc3s" target="_blank" style="color: #ffffff; text-decoration:none;" ><b>Plan Your Visit</a></td>
+				</tr>
+			</table>
+		</td>
+		
+		<td align="right" style="padding: 0px">
+			<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right" bgcolor="#dc0014" style="background-color: #dc0014">
+				<tr>
+					<td style="padding-top: 12px; padding-bottom: 12px; padding-left: 20px; padding-right: 20px">
+						<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+							<tr>
+								<td width="22"><img class="" src="https://image.email.merlinentertainments.com/lib/fe3a117075640474701670/m/1/Gift_Blue.png" alt="" width="22" border="0" style="display: block; max-width: 22px"></td>
+								<td width="10"></td>
+								<td class="nav" style="font-family: Lato, Arial, sans-serif; color: #ffffff; font-size: 15px; font-weight: normal; text-align: center; line-height: 21px; padding: 0px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHsjXVPLdD7lrjFKt071PMHRfe6IzfZmNqCu5eiN8_MXCYugmaThrPHQ3vKMCx-LWDOEYcFaW5wfzQhBYFEr4MONEVVEVR2AYtlQ2xyen7Fug" target="_blank" style="color: #ffffff; text-decoration: none" ><b>Passes</a></td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</table>
+		</td>
+		
+	</tr>
+</table></td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<table role="presentation" class="wrapto100pc darkmode" width="600" align="center" border="0" cellpadding="0" cellspacing="0" bgcolor="#31a0e0" style="background-color: #31a0e0; width: 600px">
+	<tr>
+		<td align="center" style="text-align: center; padding: 0px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHs54JUuvgCaRPuWuiD7uJdyIPIMwX-huof7e7BZejJHTrHx9KC83e0NPz9zV-poVTqHSwjSbcH3fdVXDodvk4QMW0W4PyaZxKt15bug" target="_blank" ><img src="https://image.email.merlinentertainments.com/lib/fe3a117075640474701670/m/1/Savings+End+Tonight+Compressed.gif" alt="" width="600" class="image100pc" border="0" style="display: block; margin: 0 auto; max-width: 600px"></a></td>
+	</tr>
+</table></td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<table role="presentation" class="wrapto100pc darkmode" width="600" cellpadding="0" cellspacing="0" border="0" align="center" bgcolor="#175919" style="background-color: #175919; width: 600px">
+	<tr>
+		<td style="padding: 12px">
+			<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+				<tr>
+					<td width="20"><a href="" alias="banner_bannerimagelink"><img class="bannerImageLink" src="" alt="" width="20" border="0" style="display: block; max-width: 20px"></a></td>
+					<td width="12"></td>
+					<td class="font15" style="font-family: Lato, Arial, sans-serif; color: #ffffff; font-size: 16px; font-weight: normal; text-align: center; line-height: 21px"><table align="center">        <tr>       <td><img src="https://gen.sendtric.com/countdown/elrcvhpy6l" style="display: block;max-width:100%;"></td>     </tr>    </table></td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table></td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<!-- Headings, Copy and CTA begins -->
+<table role="presentation" class="wrapto100pc darkmode" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="width: 600px; background-color: #175919">
+	<tr>
+		<td class="pad20" align="center" style="padding-top: 12px; padding-bottom: 11px; padding-left: 30px; padding-right: 30px">
+			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+				
+<tr>
+	<td class="" style="font-family: Lato, Arial, sans-serif; color: #FFFFFF; font-size: 16px; font-weight: normal; text-align: center; line-height: 34px; padding-top: 0px; padding-bottom: 10px; padding-left: 0px; padding-right: 0px"><big><b>🚨LAST CHANCE TO SAVE 🚨</b></big></td>
+</tr>
+
+				
+				
+<tr>
+	<td class="" style="font-family: LEGO Typewell, Arial, sans-serif; color: #FFCF00; font-size: 22px; font-weight: bold; text-align: center; line-height: 30px; padding-top: 0px; padding-bottom: 15px; padding-left: 0px; padding-right: 0px"><big><b>Kids Tickets for Christmas Bricktacular From $39</b></big></td>
+</tr>
+
+				
+<tr>
+	<td class="" style="font-family: Lato, Arial, sans-serif; color: #FFFFFF; font-size: 16px; font-weight: normal; text-align: center; line-height: 24px; padding: 0px"><big>Celebrate the holiday season at our <b>NEW Christmas Bricktacular</b> where LEGO<small><sup>®</sup></small> magic comes to life with shows, LEGO builds, meet & greets and so much more festive fun!​<br><br><b>Kids tickets from $39 ends tonight! What are you waiting for?! ​</b></big></td>
+</tr>
+
+				
+<tr>
+	<td align="center" style="padding-top: 20px; padding-bottom: 0px; padding-left: 0px; padding-right: 0px">
+		<table role="presentation" class="cta" width="220" cellpadding="0" cellspacing="0" border="0" align="center">
+			<tr>
+				<td align="center" style="font-family: Lato, Arial, sans-serif; color: #ffffff; font-size: 16px; font-weight: normal; text-align: center; line-height: 19px; background-color: #DC0014; border-radius: 10px; padding-top: 15px; padding-bottom: 15px; padding-left: 0px; padding-right: 0px; "><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHtJLBmmp3dHUA2kjyJCrgmxZKoIA8y8bU709OpbXgIJfv3M_EebCmzhqWeNOBmp4ua6cxjxf9bajDrGqZK7gQMaztJg8v3M2PbAWvbQ" style=" font-size: 17px; font-family: Lato, Arial, sans-serif; font-weight: normal; text-decoration: none; color: #ffffff; " >Buy Tickets & Save</a></td>
+			</tr>
+		</table>
+	</td>
+</tr>
+
+			</table>
+		</td>
+	</tr>
+</table>
+<!-- Headings, Copy and CTA ends --></td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<table role="presentation" class="wrapto100pc darkmode" width="600" align="center" border="0" cellpadding="0" cellspacing="0" bgcolor="#31a0e0" style="background-color: #31a0e0; width: 600px">
+	<tr>
+		<td align="center" style="text-align: center; padding: 0px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHtb92tDgLWGNJzHxOAkUuLCaR3wNdu4I_ejOoGuKNkENHAkaznbj59LsUHhevj8F4_jD-SVpxCz0EEAJDFlB_2tVdnpBvQNIw8Vn4DA" target="_blank" ><img src="https://image.email.merlinentertainments.com/lib/fe3a117075640474701670/m/1/Sleepover+Holidays+Secondary.jpg" alt="" width="600" class="image100pc" border="0" style="display: block; margin: 0 auto; max-width: 600px"></a></td>
+	</tr>
+</table></td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<!-- Headings, Copy and CTA begins -->
+<table role="presentation" class="wrapto100pc darkmode" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="width: 600px; background-color: #175919">
+	<tr>
+		<td class="pad20" align="center" style="padding-top: 8px; padding-bottom: 33px; padding-left: 30px; padding-right: 30px">
+			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+				
+<tr>
+	<td class="" style="font-family: Lato, Arial, sans-serif; color: #FFFFFF; font-size: 16px; font-weight: normal; text-align: center; line-height: 34px; padding-top: 0px; padding-bottom: 10px; padding-left: 0px; padding-right: 0px"><b><big>ADD A SLEEPOVER​</big></b></td>
+</tr>
+
+				
+				
+<tr>
+	<td class="" style="font-family: LEGO Typewell, Arial, sans-serif; color: #ffcf00; font-size: 22px; font-weight: bold; text-align: center; line-height: 30px; padding-top: 0px; padding-bottom: 15px; padding-left: 0px; padding-right: 0px"><b><big>Hotel Stays Include Kids Tickets as Low as $39​</big></b></td>
+</tr>
+
+				
+<tr>
+	<td class="" style="font-family: Lato, Arial, sans-serif; color: #FFFFFF; font-size: 16px; font-weight: normal; text-align: center; line-height: 24px; padding: 0px"><big>Stay just steps away with LEGO® play around every corner! Your sleepover includes FREE breakfast, early ride access, kid's entertainment and other offerings!​​<br><br><b>Enjoy savings on Hotel + Ticket Packages, now through November 17th. </b></big></td>
+</tr>
+
+				
+<tr>
+	<td align="center" style="padding-top: 20px; padding-bottom: 0px; padding-left: 0px; padding-right: 0px">
+		<table role="presentation" class="cta" width="220" cellpadding="0" cellspacing="0" border="0" align="center">
+			<tr>
+				<td align="center" style="font-family: Lato, Arial, sans-serif; color: #ffffff; font-size: 16px; font-weight: normal; text-align: center; line-height: 19px; background-color: #dc0014; border-radius: 10px; padding-top: 15px; padding-bottom: 15px; padding-left: 0px; padding-right: 0px; "><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHtjKEBvnDBQa95rWbK49myV5VPPuJA6-shYiYO93fyeik6m3E_0ebYooCTNS2p57YaDxtVufruQH1N3xEQofm0ZtpPeUj5OnSWbZ3cg" style=" font-size: 17px; font-family: Lato, Arial, sans-serif; font-weight: normal; text-decoration: none; color: #ffffff; " >Book Your Stay</a></td>
+			</tr>
+		</table>
+	</td>
+</tr>
+
+			</table>
+		</td>
+	</tr>
+</table>
+<!-- Headings, Copy and CTA ends --></td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<table role="presentation" class="wrapto100pc darkmode" width="600" align="center" border="0" cellpadding="0" cellspacing="0" bgcolor="#31a0e0" style="background-color: #31a0e0; width: 600px">
+	<tr>
+		<td align="center" style="text-align: center; padding: 0px"><a href="#" target="_blank" alias="heroimage_heroimagelink"><img src="https://image.email.merlinentertainments.com/lib/fe3a117075640474701670/m/1/Minifig.png" alt="" width="600" class="image100pc" border="0" style="display: block; margin: 0 auto; max-width: 600px"></a></td>
+	</tr>
+</table></td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<!--  -->
+
+<!--  -->
+<table role="presentation" class="wrapto100pc darkmode" width="600" align="center" border="0" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background-color: #ffffff; width: 600px">
+	<tr>
+		<td class="pad20" align="center" style="padding-top: 0px; padding-bottom: 0px; padding-left: 30px; padding-right: 30px">
+			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td align="center">
+						<table role="presentation" class="cta" width="290" cellpadding="0" cellspacing="0" border="0" align="center">
+							<tr>
+								<td align="center" style="background-color: transparent; border-radius: px; border: 2px solid #000000; display: block; padding-top: 12px; padding-bottom: 14px; padding-left: 0px; padding-right: 0px; font-family: Lato, Arial, sans-serif; color: #000000; font-size: 16px; text-align: center; line-height: 19px; ">
+									Download the LEGOLAND APP <br> 
+									<!--  -->
+									<a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHt12Ro2LmBMzo04PuDPCqJO1CdT7PLplF08LrJIoKMgCcG95OcSlcrc7sZMwhXWqooxBXZHMW2TG4-clqYL9PDxXVgrHDrwdoQM-YOdhuRfY" target="_blank" style="color: #000000; text-decoration: underline; " >iOS</a>
+									and
+									<!--  -->
+									<!--  -->
+									<a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHuHoMD_PQUhPWPqT9KHIAGBxFqhajLcTiR36OJkWZEOD5n3Ew8b7axc3zcttY7csk2GyAtmY-C6EZ_Iq2NkdSPgLtyGlZLWIRaikzaZAvA-8" target="_blank" style="color: #000000; text-decoration: underline; " >Android</a>
+									<!--  -->
+								</td>
+							</tr>
+						</table>
+					</td>
+				</tr>
+			</table>
+		</td>
+	</tr>
+</table>
+<!--  -->
+</td></tr></table><!----><!----><table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="min-width: 100%; " class="stylingblock-content-wrapper"><tr><td class="stylingblock-content-wrapper camarker-inner">
+
+<table role="presentation" class="wrapto100pc darkmode" width="600" align="center" border="0" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background-color: #ffffff; width: 600px">
+	<tr>
+		<td class="pad20" align="center" style="padding-top: 15px; padding-bottom: 12px; padding-left: 30px; padding-right: 30px">
+			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<!--  -->
+				<tr>
+					<td align="center">
+						<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto">
+							<tr>
+								<!--  -->
+								<td style="padding-top: 0px; padding-bottom: 0px; padding-left: 5px; padding-right: 5px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHuQiofp1NY-AFb-O7S1baD4DzWhh6fQQWP5BH06mYCSFJINZHG2HeFZWq68k6OJNchxZDn-5p4LWZw89GDqgmd4B5HXTH0a8VmKZJT62PoaA" target="_blank" ><!--  --><!--  --><!--  --><img src="https://image.email.merlinentertainments.com/lib/fe37117075640474711575/m/1/249a86c1-ed25-44e3-9795-d40ce5b33749.png" alt="" width="38" class="" border="0" style="display: block; margin: 0 auto; max-width: 38px"><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --></a></td>
+								<!--  -->
+								<!--  -->
+								<td style="padding-top: 0px; padding-bottom: 0px; padding-left: 5px; padding-right: 5px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHujNMVKrSVNI-16pELwnwo4jz0ItUGpeVreftyXwoyz2MbpahoAnCh07dvFmwpuKDe-gbe8Vdsa1g3YUfeQgpRV9SkPPWgP0u0nVVeaD6RVE" target="_blank" ><!--  --><!--  --><!--  --><!--  --><img src="https://image.email.merlinentertainments.com/lib/fe37117075640474711575/m/1/d2fd2f41-c82d-469e-95f2-738301d21578.png" alt="" width="38" class="" border="0" style="display: block; margin: 0 auto; max-width: 38px"><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --></a></td>
+								<!--  -->
+								<!--  -->
+								<td style="padding-top: 0px; padding-bottom: 0px; padding-left: 5px; padding-right: 5px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHu9HPc7j6zJI5RYJpytBOB9vof6CcvObRxZBm505Qqj0fMDX693-aUjq5bMjzXvkvcIhMrtYI3BD3tgA3CzpAboMyMqHrUBXXt1pm6MBviLk" target="_blank" ><!--  --><!--  --><!--  --><!--  --><!--  --><img src="https://image.email.merlinentertainments.com/lib/fe37117075640474711575/m/1/f215de4b-1fb1-4406-8155-6f17f6fba609.png" alt="" width="38" class="" border="0" style="display: block; margin: 0 auto; max-width: 38px"><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --></a></td>
+								<!--  -->
+								<!--  -->
+								<td style="padding-top: 0px; padding-bottom: 0px; padding-left: 5px; padding-right: 5px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHvOzt9KinULi9qqU_eV1Jqs8k3LvPrfwG5BChelOAfVWegZtWsubgcKI5BDJm9BE4ULuzW_mqKdhtFMz_rlVSc4tTkBiN7TP7sDrSvPeRx5s" target="_blank" ><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --><img src="https://image.email.merlinentertainments.com/lib/fe37117075640474711575/m/1/880cce8a-c709-4b39-9c5d-bf329eee75f7.png" alt="" width="38" class="" border="0" style="display: block; margin: 0 auto; max-width: 38px"><!--  --><!--  --><!--  --><!--  --><!--  --></a></td>
+								<!--  -->
+								<!--  -->
+								<td style="padding-top: 0px; padding-bottom: 0px; padding-left: 5px; padding-right: 5px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHveT2XS4zySSrL1Ykztwy-F7r8zMnAbR7F2M5BNZJVZc9VZndSf-BLOGBKgVVkjCiSNGDb4fMO9gQy5SlAokEFlCibzieLwMP9XCYKMewGoQ" target="_blank" ><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --><img src="https://image.email.merlinentertainments.com/lib/fe34117075640474721270/m/1/tiktok_black.png" alt="" width="38" class="" border="0" style="display: block; margin: 0 auto; max-width: 38px"><!--  --><!--  --><!--  --><!--  --><!--  --><!--  --></a></td>
+								<!--  -->
+							</tr>
+						</table>
+					</td>
+				</tr>
+				<!--  -->
+				
+<tr>
+	<td style="font-family: Lato, Arial, sans-serif; color: #000000; font-size: 12px; font-weight: normal; text-align: center; line-height: 18px; padding-top: 25px; padding-bottom: 0px; padding-left: 0px; padding-right: 0px"><small><b>This is an unmonitored email. For any questions, comments, or concerns, please reach out to our Guest Experience team at <a href="mailto:experience@legoland.com" style="color:#000000; text-decoration:underline;"> experience@legoland.com </a>. </b> <br> LEGOLAND California Resort | One LEGOLAND Drive Carlsbad, CA 92008  <br>All Rights Reserved. LEGO, the LEGO logo, the Minifigure, the Brick and Knob configurations and DUPLO are trademarks and/or copyrights of the LEGO Group. © 2026
+ The LEGO Group. All rights reserved.   LEGOLAND is a part of Merlin Entertainments Ltd. <br>Don't want to receive our emails anymore? We'll miss you!</small></td>
+</tr>
+
+        
+				
+<tr>
+	<td style="font-family: Lato, Arial, sans-serif; color: #000000; font-size: 12px; font-weight: normal; text-align: center; line-height: 18px; padding-top: 12px; padding-bottom: 0px; padding-left: 0px; padding-right: 0px"><a href="https://click.email.merlinentertainments.com/?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHvr8uBTq6lKqOkrh_8qV3P9I4B7U2b5wpWvsO-b-OFG1Fbbix4qBfIgkKBP7RtEvwkZYYF84dusTokmKuvAKC0elkB3UA95PZJPTqstAFwTo" target="_blank" style="color: #000000; text-decoration: underline" >Unsubscribe. </a></td>
+</tr>
+
+				
+			</table>
+		</td>
+	</tr>
+</table></td></tr></table><!---->
+        </td>
+       </tr>
+      </table>
+     </td>
+    </tr>
+   </table>
+  </div>
+
+  <img src="https://click.email.merlinentertainments.com/open.aspx?qs=ABp7ImQiOjUwNDcsInQiOjE2NTQsInMiOjUwfQAyAAAAAAJw3TyHv4dn53Romqh_b3UwoRNs4tGntg3vYzfeLQAOTR84hxseDc1M_tuR6Rgmyv19tNYGUF021MviYM1lDdtZwKebf9HTuQA&d=500017&bmt=0" width="1" height="1" alt="">
+ </body>
+</html>
