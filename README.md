@@ -2,107 +2,109 @@
 
 # .eml
 
-**Convert `.eml` files to PDF, PNG, JPG, or HTML. No system dependencies. One command.**
+**Convert `.eml` files to PDF, PNG, JPG, or HTML — from the terminal or a right-click.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/cyberbanksy/.eml/ci.yml?branch=main&style=flat-square)](https://github.com/cyberbanksy/.eml/actions)
-[![PyPI](https://img.shields.io/pypi/v/doteml?style=flat-square)](https://pypi.org/project/doteml/)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-3776ab?style=flat-square)](https://python.org)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776ab?style=flat-square)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
 </div>
 
 ---
 
-Other converters need Cairo, Pango, or WeasyPrint. **doteml** uses Playwright — one `pip install`, works everywhere.
+- **Faithful rendering** — headless Chromium, the same engine as Chrome, so marketing-grade HTML email looks right.
+- **Private by default** — JavaScript off, remote images and tracking pixels blocked, redirects stripped.
+- **Verifiable** — sender, recipients, date, and Message-ID are printed on the page *and* written into the PDF's metadata.
+- **Right-click on every OS** — Finder Quick Action, Windows *Send to*, Linux *Open With*.
+- **No Cairo / Pango / GTK** — just `pip` and a one-time Chromium download.
 
 ## Install
 
 ```bash
-pip install doteml
+pipx install git+https://github.com/cyberbanksy/.eml
 playwright install chromium
 ```
 
 <details>
-<summary>pipx / uv</summary>
+<summary>uv / pip</summary>
 
 ```bash
-pipx install doteml && playwright install chromium
+uv tool install git+https://github.com/cyberbanksy/.eml
 ```
 
 ```bash
-uv tool install doteml && playwright install chromium
+pip install git+https://github.com/cyberbanksy/.eml
 ```
+
+Then run `playwright install chromium` once. On a bare Linux server, use `playwright install --with-deps chromium` to pull in the shared libraries Chromium needs.
 
 </details>
 
 ## Usage
 
 ```bash
-doteml message.eml                   # PDF (default)
-doteml message.eml -f png            # PNG
-doteml message.eml -f jpg            # JPG
-doteml message.eml -f html           # HTML
-doteml *.eml                         # batch
+doteml message.eml              # -> message.pdf
+doteml -f png message.eml       # -> message.png
+doteml -f jpg -q 70 *.eml       # batch, JPG quality 70
+doteml -f html message.eml      # standalone HTML, images inlined
+doteml --remote-images news.eml # allow remote images (sends requests to the sender's servers)
 ```
 
-Shorthand commands are also installed:
-
-```bash
-eml2pdf message.eml
-eml2png message.eml
-eml2jpg message.eml
-eml2html message.eml
-```
-
-## Output formats
-
-| Format | Best for |
-|--------|----------|
-| **PDF** | Archiving, printing, sharing — universal |
-| **PNG** | Lossless screenshots, uploads requiring images |
-| **JPG** | Smaller files, photo-oriented platforms |
-| **HTML** | Browser viewing, further editing |
+`eml2pdf`, `eml2png`, `eml2jpg`, and `eml2html` are installed as shortcuts.
 
 ## Right-click integration
 
-One command installs OS-native right-click support:
-
 ```bash
-doteml install
+doteml install     # remove with: doteml uninstall
 ```
 
-| OS | What it does |
-|----|-------------|
-| **macOS** | Adds Finder Quick Action (right-click → Quick Actions → Convert EML to PDF) |
-| **Windows** | Adds Send To shortcut (right-click → Send To → Convert EML to PDF) |
-| **Linux** | Adds .desktop action for Nautilus / Dolphin / Thunar |
+| OS | Where it appears |
+|----|------------------|
+| **macOS** | Right-click → Quick Actions → **Convert EML to PDF** |
+| **Windows** | Right-click → Send to → **Convert EML to PDF** (no admin needed) |
+| **Linux** | Right-click → Open With → **Convert EML to PDF** |
 
-Remove with `doteml uninstall`.
+The action calls the same Python that installed it, so it works even when `doteml` isn't on Finder's or Explorer's `PATH`.
+
+## Output formats
+
+| Format | Good for |
+|--------|----------|
+| **PDF** | Archiving, legal/HR records, uploading to portals — carries email metadata |
+| **PNG** | Lossless image of the full message |
+| **JPG** | Smaller image for chat apps and forms that only accept photos |
+| **HTML** | Viewing or editing in a browser; inline images embedded |
+
+## What's preserved
+
+Every output starts with a header block: **Subject, From, To, Cc, Bcc, Reply-To, Date, Message-ID**, and a list of attachments (name and size). Inline `cid:` images are embedded.
+
+PDFs also carry this in their document properties, so it survives even if the page is cropped:
+
+```
+Title / Subject   message subject
+Author            From
+Keywords          Message-ID
+CreationDate      the email's Date header
+EmailFrom, EmailTo, EmailCc, EmailDate, EmailMessageID
+```
+
+Attachments themselves aren't embedded — the conversion is intentionally lossy. Keep the `.eml` if you need them.
 
 ## Options
 
 ```
 doteml [OPTIONS] FILES...
 
-  -o, --output PATH     Output path (single file only)
-  -f, --format FORMAT   pdf | png | jpg | html (default: pdf)
-  -q, --quality INT     JPG quality 1-100 (default: 85)
-      --version         Show version
-      --help            Show help
+  -f, --format [pdf|png|jpg|html]  Output format  [default: pdf]
+  -o, --output PATH                Output path (single file only)
+  -q, --quality 1-100              JPG quality  [default: 85]
+      --remote-images              Load remote images and styles
+      --version                    Show version
+      --help                       Show help
 ```
 
-## How it works
-
-1. Parses `.eml` with Python's `email` module (handles multipart, encodings, inline images)
-2. Builds an HTML document with email headers (From, To, Subject, Date, CC)
-3. Embeds inline `cid:` images as data URIs
-4. Renders via headless Chromium to PDF, PNG, or JPG — or saves the HTML directly
-
-## Why not WeasyPrint?
-
-WeasyPrint needs Cairo, Pango, and GDK-PixBuf as system dependencies. On macOS that means Homebrew. On Windows it's painful. On some Linux distros it conflicts with system packages.
-
-Playwright bundles its own Chromium — `playwright install chromium` and you're done. It also renders complex HTML emails more accurately (same engine as Chrome).
+A failed file is reported and the batch continues; the exit code is non-zero if anything failed.
 
 ## Development
 
@@ -112,6 +114,8 @@ pip install -e ".[dev]"
 playwright install chromium
 pytest
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

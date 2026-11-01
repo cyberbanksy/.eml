@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import email.mime.image
 import email.mime.multipart
 import email.mime.text
-import email.mime.image
 from pathlib import Path
 
 import pytest
-
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -30,7 +29,7 @@ def simple_eml(tmp_path: Path) -> Path:
         "Subject: Test Email\r\n"
         "Date: Mon, 1 Jan 2024 12:00:00 +0000\r\n"
         "MIME-Version: 1.0\r\n"
-        "Content-Type: text/html; charset=\"utf-8\"\r\n"
+        'Content-Type: text/html; charset="utf-8"\r\n'
         "\r\n"
         "<html><body><h1>Hello</h1><p>This is a test.</p></body></html>\r\n"
     )
@@ -46,7 +45,7 @@ def plaintext_eml(tmp_path: Path) -> Path:
         "Subject: Plain text email\r\n"
         "Date: Tue, 2 Jan 2024 09:30:00 +0000\r\n"
         "MIME-Version: 1.0\r\n"
-        "Content-Type: text/plain; charset=\"utf-8\"\r\n"
+        'Content-Type: text/plain; charset="utf-8"\r\n'
         "\r\n"
         "Hello Bob,\r\n\r\nThis is a plain text email.\r\n\r\nBest,\r\nAlice\r\n"
     )
@@ -84,7 +83,7 @@ def eml_with_cc(tmp_path: Path) -> Path:
         "Subject: Email with CC\r\n"
         "Date: Thu, 4 Jan 2024 10:00:00 +0000\r\n"
         "MIME-Version: 1.0\r\n"
-        "Content-Type: text/html; charset=\"utf-8\"\r\n"
+        'Content-Type: text/html; charset="utf-8"\r\n'
         "\r\n"
         "<html><body><p>CC test</p></body></html>\r\n"
     )
@@ -100,7 +99,7 @@ def encoded_subject_eml(tmp_path: Path) -> Path:
         "Subject: =?UTF-8?B?SGVsbG8g8J+RiyBXb3JsZA==?=\r\n"
         "Date: Fri, 5 Jan 2024 08:00:00 +0000\r\n"
         "MIME-Version: 1.0\r\n"
-        "Content-Type: text/html; charset=\"utf-8\"\r\n"
+        'Content-Type: text/html; charset="utf-8"\r\n'
         "\r\n"
         "<html><body><p>Encoded subject test</p></body></html>\r\n"
     )
