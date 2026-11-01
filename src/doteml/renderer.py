@@ -92,6 +92,17 @@ def render_pdf(html: str, output: Path) -> None:
         browser.close()
 
 
+def render_png(html: str, output: Path) -> None:
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = _launch_browser(p)
+        page = browser.new_page(viewport={"width": 800, "height": 600})
+        page.set_content(html, wait_until="networkidle")
+        page.screenshot(path=str(output), full_page=True, type="png")
+        browser.close()
+
+
 def render_jpg(html: str, output: Path, *, quality: int = 85) -> None:
     from playwright.sync_api import sync_playwright
 
