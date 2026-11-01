@@ -1,144 +1,163 @@
 from __future__ import annotations
 
+import contextlib
+import platform
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import click
 
 from . import __version__
 from .converter import FORMATS
 
+_GROUP_FLAGS = {"--help", "-h", "--version"}
+
 
 class DefaultGroup(click.Group):
-    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
-        cmd_name = args[0] if args else None
-        if cmd_name and cmd_name not in self.commands and not cmd_name.startswith("-"):
-            args = ["convert"] + list(args)
-        return super().resolve_command(ctx, args)
+    """Route ``doteml [OPTIONS] FILES`` to the ``convert`` subcommand."""
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        if args and args[0] not in self.commands and args[0] not in _GROUP_FLAGS:
+            args = ["convert", *args]
+        return super().parse_args(ctx, args)
+
+
+def _common_options(func: Callable[..., Any]) -> Callable[..., Any]:
+    func = click.option(
+        "--remote-images",
+        is_flag=True,
+        help="Load remote images and styles (off by default: blocks trackers).",
+    )(func)
+    func = click.option(
+        "-q",
+        "--quality",
+        type=click.IntRange(1, 100),
+        default=85,
+        show_default=True,
+        help="JPG quality.",
+    )(func)
+    func = click.option(
+        "-o", "--output", type=click.Path(path_type=Path), help="Output path (single file only)."
+    )(func)
+    return click.argument(
+        "files", nargs=-1, required=True, type=click.Path(exists=True, path_type=Path)
+    )(func)
+
+
+def _run(
+    files: tuple[Path, ...], output: Path | None, fmt: str, quality: int, remote_images: bool
+) -> None:
+    from .converter import convert as do_convert
+    from .renderer import Renderer
+
+    if output and len(files) > 1:
+        raise click.UsageError("--output can only be used with a single file")
+
+    failed = 0
+    with contextlib.ExitStack() as stack:
+        renderer = None
+        if fmt != "html":
+            try:
+                renderer = stack.enter_context(Renderer(allow_remote=remote_images))
+            except RuntimeError as e:
+                raise click.ClickException(str(e)) from e
+        for f in files:
+            try:
+                result = do_convert(
+                    f,
+                    output,
+                    fmt=fmt,
+                    quality=quality,
+                    allow_remote=remote_images,
+                    renderer=renderer,
+                )
+                click.echo(f"{f} -> {result}")
+            except Exception as e:  # keep going: one bad file shouldn't stop a batch
+                failed += 1
+                click.echo(f"Error: {f}: {e}", err=True)
+    if failed:
+        sys.exit(1)
 
 
 @click.group(cls=DefaultGroup)
 @click.version_option(__version__, prog_name="doteml")
 def cli() -> None:
-    """Convert .eml files to PDF, PNG, JPG, or HTML."""
+    """Convert .eml files to PDF, PNG, JPG, or HTML.
+
+    \b
+    Examples:
+      doteml message.eml
+      doteml -f png *.eml
+    """
 
 
 @cli.command()
-@click.argument(
-    "files", nargs=-1, required=True, type=click.Path(exists=True, path_type=Path)
-)
-@click.option(
-    "-o", "--output", type=click.Path(path_type=Path), help="Output path (single file only)"
-)
+@_common_options
 @click.option(
     "-f",
     "--format",
     "fmt",
-    type=click.Choice(list(FORMATS)),
+    type=click.Choice(FORMATS),
     default="pdf",
-    help="Output format",
+    show_default=True,
+    help="Output format.",
 )
-@click.option("-q", "--quality", type=int, default=85, help="JPG quality (1-100)")
 def convert(
-    files: tuple[Path, ...], output: Path | None, fmt: str, quality: int
+    files: tuple[Path, ...], output: Path | None, quality: int, remote_images: bool, fmt: str
 ) -> None:
-    """Convert .eml files to PDF, PNG, JPG, or HTML."""
-    from .converter import convert as do_convert
-
-    if output and len(files) > 1:
-        click.echo("Error: --output can only be used with a single file", err=True)
-        sys.exit(1)
-
-    for f in files:
-        try:
-            result = do_convert(f, output, fmt=fmt, quality=quality)
-            click.echo(f"{f} -> {result}")
-        except Exception as e:
-            click.echo(f"Error: {f}: {e}", err=True)
-            sys.exit(1)
+    """Convert .eml files (default command)."""
+    _run(files, output, fmt, quality, remote_images)
 
 
 @cli.command()
 def install() -> None:
-    """Install OS integration (right-click menu)."""
-    import platform
+    """Add a right-click "Convert EML to PDF" action to your OS."""
+    from . import integrations
 
-    os_name = platform.system()
-    if os_name == "Darwin":
-        from .integrations import install_macos
-
-        path = install_macos()
-        click.echo(f"Installed macOS Quick Action: {path}")
-        click.echo("Right-click .eml files -> Quick Actions -> Convert EML to PDF")
-    elif os_name == "Windows":
-        from .integrations import install_windows_sendto
-
-        path = install_windows_sendto()
-        click.echo(f"Installed Windows Send To shortcut: {path}")
-        click.echo("Right-click .eml files -> Send To -> Convert EML to PDF")
-    elif os_name == "Linux":
-        from .integrations import install_linux
-
-        path = install_linux()
-        click.echo(f"Installed desktop action: {path}")
-        click.echo("Right-click .eml files in your file manager to convert.")
+    system = platform.system()
+    if system == "Darwin":
+        path = integrations.install_macos()
+        hint = "Right-click .eml files -> Quick Actions -> Convert EML to PDF"
+    elif system == "Windows":
+        path = integrations.install_windows_sendto()
+        hint = "Right-click .eml files -> Send to -> Convert EML to PDF"
+    elif system == "Linux":
+        path = integrations.install_linux()
+        hint = "Right-click .eml files -> Open With -> Convert EML to PDF"
     else:
-        click.echo(f"No integration available for {os_name}", err=True)
-        sys.exit(1)
+        raise click.ClickException(f"No integration available for {system}")
+    click.echo(f"Installed: {path}")
+    click.echo(hint)
 
 
 @cli.command()
 def uninstall() -> None:
-    """Remove OS integration."""
-    import platform
+    """Remove the right-click action."""
+    from . import integrations
 
-    os_name = platform.system()
-    if os_name == "Darwin":
-        from .integrations import uninstall_macos
-
-        uninstall_macos()
-        click.echo("Removed macOS Quick Action.")
-    elif os_name == "Windows":
-        from .integrations import uninstall_windows_sendto
-
-        uninstall_windows_sendto()
-        click.echo("Removed Windows Send To shortcut.")
-    elif os_name == "Linux":
-        from .integrations import uninstall_linux
-
-        uninstall_linux()
-        click.echo("Removed desktop action.")
-    else:
-        click.echo(f"No integration available for {os_name}", err=True)
-        sys.exit(1)
+    removers = {
+        "Darwin": integrations.uninstall_macos,
+        "Windows": integrations.uninstall_windows_sendto,
+        "Linux": integrations.uninstall_linux,
+    }
+    system = platform.system()
+    if system not in removers:
+        raise click.ClickException(f"No integration available for {system}")
+    removers[system]()
+    click.echo("Removed.")
 
 
-def _make_format_cli(default_fmt: str) -> click.Command:
-    @click.command()
-    @click.argument(
-        "files", nargs=-1, required=True, type=click.Path(exists=True, path_type=Path)
-    )
-    @click.option(
-        "-o", "--output", type=click.Path(path_type=Path), help="Output path (single file only)"
-    )
-    @click.option("-q", "--quality", type=int, default=85, help="JPG quality (1-100)")
-    @click.version_option(__version__, prog_name=f"eml2{default_fmt}")
-    def format_cli(files: tuple[Path, ...], output: Path | None, quality: int) -> None:
-        from .converter import convert as do_convert
+def _make_format_cli(fmt: str) -> click.Command:
+    @click.command(help=f"Convert .eml files to {fmt.upper()}.")
+    @_common_options
+    @click.version_option(__version__, prog_name=f"eml2{fmt}")
+    def format_cli(
+        files: tuple[Path, ...], output: Path | None, quality: int, remote_images: bool
+    ) -> None:
+        _run(files, output, fmt, quality, remote_images)
 
-        if output and len(files) > 1:
-            click.echo("Error: --output can only be used with a single file", err=True)
-            sys.exit(1)
-
-        for f in files:
-            try:
-                result = do_convert(f, output, fmt=default_fmt, quality=quality)
-                click.echo(f"{f} -> {result}")
-            except Exception as e:
-                click.echo(f"Error: {f}: {e}", err=True)
-                sys.exit(1)
-
-    format_cli.help = f"Convert .eml files to {default_fmt.upper()}."
     return format_cli
 
 

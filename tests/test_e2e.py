@@ -48,6 +48,7 @@ class TestE2EPdf:
         output = tmp_path / "pages.pdf"
         convert(simple_eml, output)
         from pypdf import PdfReader
+
         reader = PdfReader(output)
         assert len(reader.pages) >= 1
 
@@ -150,6 +151,7 @@ class TestE2EErrors:
 class TestE2ECli:
     def test_cli_convert(self, simple_eml: Path, tmp_path: Path) -> None:
         from click.testing import CliRunner
+
         from doteml.cli import cli
 
         output = tmp_path / "cli_out.pdf"
@@ -160,6 +162,7 @@ class TestE2ECli:
 
     def test_cli_version(self) -> None:
         from click.testing import CliRunner
+
         from doteml.cli import cli
 
         runner = CliRunner()
@@ -169,6 +172,7 @@ class TestE2ECli:
 
     def test_cli_jpg(self, simple_eml: Path, tmp_path: Path) -> None:
         from click.testing import CliRunner
+
         from doteml.cli import cli
 
         output = tmp_path / "cli_out.jpg"
@@ -179,6 +183,7 @@ class TestE2ECli:
 
     def test_cli_png_format(self, simple_eml: Path, tmp_path: Path) -> None:
         from click.testing import CliRunner
+
         from doteml.cli import cli
 
         output = tmp_path / "cli_out.png"
@@ -189,6 +194,7 @@ class TestE2ECli:
 
     def test_cli_html_format(self, simple_eml: Path, tmp_path: Path) -> None:
         from click.testing import CliRunner
+
         from doteml.cli import cli
 
         output = tmp_path / "cli_out.html"
@@ -199,9 +205,43 @@ class TestE2ECli:
 
 
 @pytest.mark.timeout(60)
+class TestCliRouting:
+    def test_options_before_files(self, simple_eml: Path, tmp_path: Path) -> None:
+        from click.testing import CliRunner
+
+        from doteml.cli import cli
+
+        output = tmp_path / "first.png"
+        result = CliRunner().invoke(cli, ["-f", "png", "-o", str(output), str(simple_eml)])
+        assert result.exit_code == 0, result.output
+        assert output.read_bytes()[:4] == b"\x89PNG"
+
+    def test_batch_continues_after_failure(self, simple_eml: Path, tmp_path: Path) -> None:
+        from click.testing import CliRunner
+
+        from doteml.cli import cli
+
+        bad = tmp_path / "bad.txt"
+        bad.write_text("nope")
+        result = CliRunner().invoke(cli, ["-f", "html", str(bad), str(simple_eml)])
+        assert result.exit_code == 1
+        assert simple_eml.with_suffix(".html").exists()
+        simple_eml.with_suffix(".html").unlink()
+
+    def test_quality_range(self, simple_eml: Path) -> None:
+        from click.testing import CliRunner
+
+        from doteml.cli import cli
+
+        result = CliRunner().invoke(cli, ["-q", "0", str(simple_eml)])
+        assert result.exit_code == 2
+
+
+@pytest.mark.timeout(60)
 class TestE2EEntryPoints:
     def test_eml2png_entrypoint(self, simple_eml: Path, tmp_path: Path) -> None:
         from click.testing import CliRunner
+
         from doteml.cli import cli_png
 
         output = tmp_path / "ep.png"
@@ -212,6 +252,7 @@ class TestE2EEntryPoints:
 
     def test_eml2jpg_entrypoint(self, simple_eml: Path, tmp_path: Path) -> None:
         from click.testing import CliRunner
+
         from doteml.cli import cli_jpg
 
         output = tmp_path / "ep.jpg"
@@ -222,6 +263,7 @@ class TestE2EEntryPoints:
 
     def test_eml2html_entrypoint(self, simple_eml: Path, tmp_path: Path) -> None:
         from click.testing import CliRunner
+
         from doteml.cli import cli_html
 
         output = tmp_path / "ep.html"
