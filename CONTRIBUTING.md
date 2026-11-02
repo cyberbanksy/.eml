@@ -4,25 +4,31 @@
 
 ```bash
 git clone https://github.com/cyberbanksy/.eml.git && cd .eml
-pip install -e ".[dev]"
-doteml doctor   # checks for Chrome / Edge / Chromium
+cargo build
+cargo run -- doctor
 ```
+
+You need Rust 1.88+ and, for the Chrome backend tests, Chrome/Chromium/Edge (set `DOTEML_BROWSER=/path/to/chrome` to pick one).
 
 ## Tests
 
 ```bash
-pytest           # run all
-pytest -v        # verbose
-pytest -k e2e    # only E2E tests
+cargo test                 # everything for this OS
+cargo test --test e2e      # one file
 ```
 
-To test against a specific browser build, set `DOTEML_BROWSER=/path/to/chrome`.
+The test suite renders real emails, including `tests/fixtures/legoland.eml`. `tests/webkit.rs` only compiles on macOS, where it drives the built binary with `--backend webkit` (WebKit must run on the process main thread, which `cargo test` worker threads aren't). Type-check the macOS code from Linux with:
+
+```bash
+rustup target add aarch64-apple-darwin
+cargo clippy --target aarch64-apple-darwin --all-targets -- -D warnings
+```
 
 ## Lint
 
 ```bash
-uvx ruff check src/ tests/
-uvx ruff format src/ tests/
+cargo fmt
+cargo clippy --all-targets -- -D warnings
 ```
 
 ## Pull requests
