@@ -179,12 +179,13 @@ fn rect(width: f64, height: f64) -> NSRect {
     NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(width, height))
 }
 
+/// WebKit content-rule url-filters don't support `|`, so each scheme gets its own rule.
 fn content_rules(allow_remote: bool) -> &'static str {
     if allow_remote {
         // Remote images, styles and fonts load; anything else over the network is blocked.
-        r#"[{"trigger":{"url-filter":"^(https?|wss?)://","resource-type":["document","script","raw","svg-document","media","popup"]},"action":{"type":"block"}}]"#
+        r#"[{"trigger":{"url-filter":"^https?://","resource-type":["document","script","raw","svg-document","media","popup"]},"action":{"type":"block"}},{"trigger":{"url-filter":"^wss?://"},"action":{"type":"block"}}]"#
     } else {
-        r#"[{"trigger":{"url-filter":"^(https?|wss?)://"},"action":{"type":"block"}}]"#
+        r#"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}},{"trigger":{"url-filter":"^wss?://"},"action":{"type":"block"}}]"#
     }
 }
 
