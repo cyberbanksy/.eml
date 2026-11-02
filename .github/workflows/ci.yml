@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }} chromium
+      - run: doteml doctor  # runners ship with Chrome preinstalled
       - run: pytest -v
 
   lint:

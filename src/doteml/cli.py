@@ -112,6 +112,21 @@ def convert(
 
 
 @cli.command()
+def doctor() -> None:
+    """Check that a supported browser is installed."""
+    from .browser import MIN_VERSION
+    from .renderer import Renderer
+
+    try:
+        with Renderer() as r:
+            click.echo(f"Browser:  {r.executable}")
+            click.echo(f"Version:  {r.product} (need {MIN_VERSION}+)")
+    except RuntimeError as e:
+        raise click.ClickException(str(e)) from e
+    click.echo("OK: ready to convert PDF, PNG, and JPG.")
+
+
+@cli.command()
 def install() -> None:
     """Add a right-click "Convert EML to PDF" action to your OS."""
     from . import integrations
