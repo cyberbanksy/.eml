@@ -166,7 +166,7 @@ class Browser:
                     lines = f.read().split()
                 if len(lines) >= 2:
                     return int(lines[0]), lines[1]
-            except (FileNotFoundError, ValueError):
+            except (OSError, ValueError):  # Windows locks the file while Chrome writes it
                 pass
             time.sleep(0.05)
         raise CDPError("Timed out waiting for the browser to start")

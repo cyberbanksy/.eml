@@ -76,3 +76,30 @@ def test_doctor_ok() -> None:
     result = CliRunner().invoke(cli, ["doctor"])
     assert result.exit_code == 0, result.output
     assert "OK" in result.output
+
+
+def test_port_file_retries_while_locked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows denies reads while Chrome is still writing DevToolsActivePort."""
+    import builtins
+
+    from doteml import cdp
+
+    (tmp_path / "DevToolsActivePort").write_text("9222\n/devtools/browser/abc\n")
+    attempts = {"n": 0}
+    real_open = builtins.open
+
+    def flaky_open(path, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if str(path).endswith("DevToolsActivePort") and attempts["n"] < 3:
+            attempts["n"] += 1
+            raise PermissionError(13, "Permission denied")
+        return real_open(path, *args, **kwargs)
+
+    class Running:
+        def poll(self) -> None:
+            return None
+
+    b = object.__new__(cdp.Browser)
+    b._profile, b.timeout, b._proc = str(tmp_path), 5.0, Running()
+    monkeypatch.setattr(builtins, "open", flaky_open)
+    assert b._wait_for_port() == (9222, "/devtools/browser/abc")
+    assert attempts["n"] == 3
