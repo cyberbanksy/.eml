@@ -4,8 +4,15 @@ use assert_cmd::Command;
 use common::*;
 use predicates::str::contains;
 
+/// Every CLI run is bounded so a hung renderer fails the test instead of the CI job.
+fn bin(name: &str) -> Command {
+    let mut cmd = Command::cargo_bin(name).unwrap();
+    cmd.timeout(std::time::Duration::from_secs(120));
+    cmd
+}
+
 fn doteml() -> Command {
-    Command::cargo_bin("doteml").unwrap()
+    bin("doteml")
 }
 
 #[test]
@@ -190,8 +197,7 @@ fn verify_cli_rejects_foreign_pdf() {
 fn eml2pdf_entrypoint() {
     let (d, p) = simple_eml();
     let out = d.path().join("ep.pdf");
-    Command::cargo_bin("eml2pdf")
-        .unwrap()
+    bin("eml2pdf")
         .arg(&p)
         .arg("-o")
         .arg(&out)
@@ -204,8 +210,7 @@ fn eml2pdf_entrypoint() {
 fn eml2png_entrypoint() {
     let (d, p) = simple_eml();
     let out = d.path().join("ep.png");
-    Command::cargo_bin("eml2png")
-        .unwrap()
+    bin("eml2png")
         .arg(&p)
         .arg("-o")
         .arg(&out)
@@ -218,8 +223,7 @@ fn eml2png_entrypoint() {
 fn eml2jpg_entrypoint() {
     let (d, p) = simple_eml();
     let out = d.path().join("ep.jpg");
-    Command::cargo_bin("eml2jpg")
-        .unwrap()
+    bin("eml2jpg")
         .arg(&p)
         .arg("-o")
         .arg(&out)
@@ -232,8 +236,7 @@ fn eml2jpg_entrypoint() {
 fn eml2html_entrypoint() {
     let (d, p) = simple_eml();
     let out = d.path().join("ep.html");
-    Command::cargo_bin("eml2html")
-        .unwrap()
+    bin("eml2html")
         .arg(&p)
         .arg("-o")
         .arg(&out)
@@ -244,8 +247,7 @@ fn eml2html_entrypoint() {
 
 #[test]
 fn eml2_version_names_itself() {
-    Command::cargo_bin("eml2jpg")
-        .unwrap()
+    bin("eml2jpg")
         .arg("--version")
         .assert()
         .success()

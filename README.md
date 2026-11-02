@@ -71,7 +71,7 @@ What this proves: the PDF, the email inside it, and the headers it shows are con
 | **Windows** | Microsoft Edge (built in) | nothing |
 | **Linux** | Chrome, Chromium, Edge, or Brave | one of those, version 110+ |
 
-`doteml doctor` shows which engine it found. Force one with `--backend chrome` or `--backend webkit` (or `DOTEML_BACKEND`), and point at a specific browser with `DOTEML_BROWSER=/path/to/chrome`. HTML output needs no engine. On a Mac without a logged-in GUI session (SSH, launchd), use `--backend chrome`.
+With WebKit, a PDF is one page as tall as the email (no awkward page breaks); use `--backend chrome` for US Letter pages. `doteml doctor` shows which engine it found. Force one with `--backend chrome` or `--backend webkit` (or `DOTEML_BACKEND`), and point at a specific browser with `DOTEML_BROWSER=/path/to/chrome`. HTML output needs no engine. On a Mac without a logged-in GUI session (SSH, launchd), use `--backend chrome`.
 
 ## Right-click integration
 

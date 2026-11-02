@@ -1,20 +1,17 @@
 //! macOS backend: renders with the system WebKit, so no Chrome is needed.
 
 use std::cell::{Cell, RefCell};
-use std::ffi::c_void;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use block2::RcBlock;
 use objc2::rc::Retained;
-use objc2::runtime::{AnyObject, Bool, ProtocolObject};
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
+use objc2::runtime::{AnyObject, ProtocolObject};
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSBitmapImageFileType,
-    NSBitmapImageRep, NSImage, NSImageCompressionFactor, NSModalPanelRunLoopMode, NSPrintInfo,
-    NSPrintJobSavingURL, NSPrintOperation, NSPrintSaveJob, NSPrintingPaginationMode, NSWindow,
-    NSWindowStyleMask,
+    NSBitmapImageRep, NSImage, NSImageCompressionFactor, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{
     NSData, NSDate, NSDefaultRunLoopMode, NSDictionary, NSError, NSNumber, NSObject,
@@ -31,13 +28,7 @@ use crate::error::{Error, Result};
 
 const WIDTH: f64 = 800.0;
 const INITIAL_HEIGHT: f64 = 600.0;
-/// Letter paper in points, with 0.4in (28.8pt) margins — same layout as the Chrome backend.
-const PAPER: NSSize = NSSize {
-    width: 612.0,
-    height: 792.0,
-};
-const MARGIN: f64 = 28.8;
-const PRINT_TIMEOUT: Duration = Duration::from_secs(30);
+const PDF_TIMEOUT: Duration = Duration::from_secs(30);
 /// Far off-screen so the (transparent) host window is never seen.
 const WINDOW_ORIGIN: NSPoint = NSPoint {
     x: -20000.0,
@@ -73,7 +64,6 @@ fn ns_error(err: *mut NSError) -> String {
 struct NavState {
     finished: Cell<bool>,
     failed: RefCell<Option<String>>,
-    print_done: Cell<Option<bool>>,
 }
 
 define_class!(
@@ -122,20 +112,13 @@ define_class!(
                 .map(|s| s.to_string())
                 .unwrap_or_default();
             let allow = url.starts_with("about:")
-                || (url.starts_with("file://") && url.split('#').next().is_some_and(|u| u.ends_with(DOC_NAME)));
+                || (url.starts_with("file://")
+                    && url.split('#').next().is_some_and(|u| u.ends_with(DOC_NAME)));
             handler.call((if allow {
                 WKNavigationActionPolicy::Allow
             } else {
                 WKNavigationActionPolicy::Cancel
             },));
-        }
-    }
-
-    impl NavDelegate {
-        // NSPrintOperation's didRunSelector for runOperationModalForWindow.
-        #[unsafe(method(printOperationDidRun:success:contextInfo:))]
-        fn print_did_run(&self, _op: &NSPrintOperation, success: Bool, _context: *mut c_void) {
-            self.ivars().print_done.set(Some(success.as_bool()));
         }
     }
 );
@@ -158,7 +141,6 @@ impl NavDelegate {
     fn reset(&self) {
         self.ivars().finished.set(false);
         *self.ivars().failed.borrow_mut() = None;
-        self.ivars().print_done.set(None);
     }
 }
 
@@ -175,8 +157,6 @@ fn pump_until(done: impl Fn() -> bool, timeout: Duration) -> bool {
         // SAFETY: these are immutable framework constants.
         unsafe {
             run_loop.runMode_beforeDate(NSDefaultRunLoopMode, &until);
-            // Print sheets are serviced in the modal-panel mode.
-            run_loop.runMode_beforeDate(NSModalPanelRunLoopMode, &NSDate::now());
         }
     }
     true
@@ -363,61 +343,10 @@ impl WebKitBackend {
                 .createPDFWithConfiguration_completionHandler(Some(&cfg), &block)
         };
         trace("createPDF: requested");
-        if !pump_until(|| out.borrow().is_some(), PRINT_TIMEOUT) {
+        if !pump_until(|| out.borrow().is_some(), PDF_TIMEOUT) {
             return Err(backend_err("WebKit PDF export timed out"));
         }
         out.borrow_mut().take().unwrap().map_err(backend_err)
-    }
-
-    /// Paginated Letter PDF through AppKit printing. WKWebView prints asynchronously, so it
-    /// must go through the window-modal API; the synchronous `runOperation` yields an empty file.
-    fn print_pdf(&self, output: &Path) -> std::result::Result<(), String> {
-        let _ = std::fs::remove_file(output);
-        let info = NSPrintInfo::new();
-        info.setPaperSize(PAPER);
-        info.setTopMargin(MARGIN);
-        info.setBottomMargin(MARGIN);
-        info.setLeftMargin(MARGIN);
-        info.setRightMargin(MARGIN);
-        info.setHorizontalPagination(NSPrintingPaginationMode::Fit);
-        info.setVerticalPagination(NSPrintingPaginationMode::Automatic);
-        info.setHorizontallyCentered(false);
-        info.setVerticallyCentered(false);
-        info.setScalingFactor(1.0);
-        let url = NSURL::fileURLWithPath(&NSString::from_str(&output.to_string_lossy()));
-        unsafe {
-            info.setJobDisposition(NSPrintSaveJob);
-            info.dictionary()
-                .insert(NSPrintJobSavingURL, &*url as &AnyObject);
-        }
-
-        let op = unsafe { self.webview.printOperationWithPrintInfo(&info) };
-        trace("print: operation created");
-        op.setShowsPrintPanel(false);
-        op.setShowsProgressPanel(false);
-        op.setCanSpawnSeparateThread(false);
-        let delegate: &AnyObject = &self.delegate;
-        unsafe {
-            op.runOperationModalForWindow_delegate_didRunSelector_contextInfo(
-                &self.window,
-                Some(delegate),
-                Some(sel!(printOperationDidRun:success:contextInfo:)),
-                std::ptr::null_mut(),
-            );
-        }
-        trace("print: modal operation started");
-        let state = self.delegate.ivars();
-        if !pump_until(|| state.print_done.get().is_some(), PRINT_TIMEOUT) {
-            return Err("print operation timed out".into());
-        }
-        if state.print_done.get() != Some(true) {
-            return Err("print operation reported failure".into());
-        }
-        match std::fs::read(output) {
-            Ok(bytes) if bytes.starts_with(b"%PDF-") && bytes.len() > 100 => Ok(()),
-            Ok(_) => Err("print operation wrote an empty PDF".into()),
-            Err(e) => Err(format!("print operation wrote no file ({e})")),
-        }
     }
 }
 
@@ -506,16 +435,11 @@ impl Backend for WebKitBackend {
             RenderFormat::Png | RenderFormat::Jpg => self
                 .snapshot(height, fmt, quality)
                 .and_then(|bytes| Ok(std::fs::write(output, bytes)?)),
-            RenderFormat::Pdf => match self.print_pdf(output) {
-                Ok(()) => Ok(()),
-                Err(why) => {
-                    eprintln!(
-                        "warning: WebKit print failed ({why}); wrote an unpaginated PDF — use --backend chrome for Letter pages"
-                    );
-                    self.create_pdf(height)
-                        .and_then(|bytes| Ok(std::fs::write(output, bytes)?))
-                }
-            },
+            // A single page as tall as the email. AppKit's paginated print path
+            // (NSPrintOperation) blocks forever in a CLI, so it is not used.
+            RenderFormat::Pdf => self
+                .create_pdf(height)
+                .and_then(|bytes| Ok(std::fs::write(output, bytes)?)),
         };
         // Release the document before the staging directory goes away.
         unsafe {
