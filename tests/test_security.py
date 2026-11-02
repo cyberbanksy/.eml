@@ -18,7 +18,8 @@ def _eml(tmp_path: Path, body: str) -> Path:
     path.write_text(
         "From: a@example.com\r\nTo: b@example.com\r\nSubject: Security\r\n"
         "Date: Mon, 1 Jan 2024 12:00:00 +0000\r\nMessage-ID: <sec@example.com>\r\n"
-        'Content-Type: text/html; charset="utf-8"\r\n\r\n' + body
+        'Content-Type: text/html; charset="utf-8"\r\n\r\n' + body,
+        newline="",
     )
     return path
 
