@@ -85,6 +85,10 @@ impl Browser {
             "--disable-default-apps",
             "--mute-audio",
             "--hide-scrollbars",
+            // Background targets otherwise stop producing frames under load (screenshots fail).
+            "--disable-renderer-backgrounding",
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
         ]);
         #[cfg(unix)]
         if unsafe { libc::geteuid() } == 0 {

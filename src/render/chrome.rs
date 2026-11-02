@@ -155,7 +155,14 @@ impl Backend for ChromeBackend {
                     if fmt == RenderFormat::Jpg {
                         params["quality"] = json!(quality);
                     }
-                    b.send("Page.captureScreenshot", params, s)?
+                    // Chrome occasionally has no frame ready on a busy machine; retry once.
+                    match b.send("Page.captureScreenshot", params.clone(), s) {
+                        Err(Error::Cdp(msg)) if msg.contains("Unable to capture screenshot") => {
+                            b.pump_until(|| false, Duration::from_millis(500))?;
+                            b.send("Page.captureScreenshot", params, s)?
+                        }
+                        other => other?,
+                    }
                 }
             };
             let encoded = data["data"].as_str().unwrap_or_default();
