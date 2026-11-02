@@ -31,7 +31,8 @@ def simple_eml(tmp_path: Path) -> Path:
         "MIME-Version: 1.0\r\n"
         'Content-Type: text/html; charset="utf-8"\r\n'
         "\r\n"
-        "<html><body><h1>Hello</h1><p>This is a test.</p></body></html>\r\n"
+        "<html><body><h1>Hello</h1><p>This is a test.</p></body></html>\r\n",
+        newline="",
     )
     return path
 
@@ -47,7 +48,8 @@ def plaintext_eml(tmp_path: Path) -> Path:
         "MIME-Version: 1.0\r\n"
         'Content-Type: text/plain; charset="utf-8"\r\n'
         "\r\n"
-        "Hello Bob,\r\n\r\nThis is a plain text email.\r\n\r\nBest,\r\nAlice\r\n"
+        "Hello Bob,\r\n\r\nThis is a plain text email.\r\n\r\nBest,\r\nAlice\r\n",
+        newline="",
     )
     return path
 
@@ -85,7 +87,8 @@ def eml_with_cc(tmp_path: Path) -> Path:
         "MIME-Version: 1.0\r\n"
         'Content-Type: text/html; charset="utf-8"\r\n'
         "\r\n"
-        "<html><body><p>CC test</p></body></html>\r\n"
+        "<html><body><p>CC test</p></body></html>\r\n",
+        newline="",
     )
     return path
 
@@ -101,6 +104,7 @@ def encoded_subject_eml(tmp_path: Path) -> Path:
         "MIME-Version: 1.0\r\n"
         'Content-Type: text/html; charset="utf-8"\r\n'
         "\r\n"
-        "<html><body><p>Encoded subject test</p></body></html>\r\n"
+        "<html><body><p>Encoded subject test</p></body></html>\r\n",
+        newline="",
     )
     return path
