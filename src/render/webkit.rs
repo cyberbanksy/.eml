@@ -50,6 +50,13 @@ const DOC_NAME: &str = "email.html";
 /// Filled by a completion handler: the value, or WebKit's error message.
 type Slot<T> = Rc<RefCell<Option<std::result::Result<T, String>>>>;
 
+/// Stage tracing for diagnosing WebKit on headless machines (`DOTEML_DEBUG=1`).
+fn trace(stage: &str) {
+    if std::env::var_os("DOTEML_DEBUG").is_some() {
+        eprintln!("[webkit] {stage}");
+    }
+}
+
 fn backend_err(msg: impl Into<String>) -> Error {
     Error::Backend(msg.into())
 }
@@ -202,11 +209,13 @@ impl WebKitBackend {
     pub fn new(opts: RenderOptions) -> Result<Self> {
         let mtm = MainThreadMarker::new()
             .ok_or_else(|| backend_err("the webkit backend must be used from the main thread"))?;
+        trace("main thread ok");
 
         // WebKit needs AppKit initialised, but a CLI must not show a Dock icon or steal focus.
         let app = NSApplication::sharedApplication(mtm);
         app.setActivationPolicy(NSApplicationActivationPolicy::Prohibited);
         app.finishLaunching();
+        trace("NSApplication launched");
 
         let config = unsafe { WKWebViewConfiguration::new(mtm) };
         unsafe {
@@ -219,6 +228,7 @@ impl WebKitBackend {
 
         let rule_store_dir = tempfile::Builder::new().prefix("doteml-rules-").tempdir()?;
         let rules = compile_rules(mtm, rule_store_dir.path(), opts.allow_remote, opts.timeout)?;
+        trace("content rules compiled");
         unsafe { config.userContentController().addContentRuleList(&rules) };
 
         let webview = unsafe {
@@ -230,6 +240,7 @@ impl WebKitBackend {
         };
         let delegate = NavDelegate::new(mtm);
         unsafe { webview.setNavigationDelegate(Some(ProtocolObject::from_ref(&*delegate))) };
+        trace("web view created");
 
         let window = unsafe {
             NSWindow::initWithContentRect_styleMask_backing_defer(
@@ -245,6 +256,7 @@ impl WebKitBackend {
         if ORDER_WINDOW_FRONT {
             window.setAlphaValue(0.0);
             window.orderFrontRegardless();
+            trace("window ordered in");
         }
 
         Ok(Self {
@@ -259,6 +271,7 @@ impl WebKitBackend {
 
     fn load(&self, doc: &Path, dir: &Path) -> Result<()> {
         self.delegate.reset();
+        trace("load: start");
         let doc_url =
             NSURL::fileURLWithPath_isDirectory(&NSString::from_str(&doc.to_string_lossy()), false);
         let dir_url =
@@ -271,6 +284,7 @@ impl WebKitBackend {
         // Render whatever loaded on timeout, like the Chrome backend.
         let state = self.delegate.ivars();
         pump_until(|| state.finished.get(), self.opts.timeout);
+        trace("load: done or timed out");
         if let Some(msg) = state.failed.borrow().clone() {
             return Err(backend_err(format!(
                 "WebKit could not load the email: {msg}"
@@ -304,6 +318,7 @@ impl WebKitBackend {
                 .evaluateJavaScript_completionHandler(&script, Some(&block))
         };
         pump_until(|| done.get(), Duration::from_secs(5));
+        trace("height probe returned");
         result.get().filter(|h| *h >= 1.0).unwrap_or(INITIAL_HEIGHT)
     }
 
@@ -325,6 +340,7 @@ impl WebKitBackend {
             self.webview
                 .takeSnapshotWithConfiguration_completionHandler(Some(&cfg), &block)
         };
+        trace("snapshot: requested");
         if !pump_until(|| out.borrow().is_some(), self.opts.timeout) {
             return Err(backend_err("WebKit snapshot timed out"));
         }
@@ -346,6 +362,7 @@ impl WebKitBackend {
             self.webview
                 .createPDFWithConfiguration_completionHandler(Some(&cfg), &block)
         };
+        trace("createPDF: requested");
         if !pump_until(|| out.borrow().is_some(), PRINT_TIMEOUT) {
             return Err(backend_err("WebKit PDF export timed out"));
         }
@@ -375,6 +392,7 @@ impl WebKitBackend {
         }
 
         let op = unsafe { self.webview.printOperationWithPrintInfo(&info) };
+        trace("print: operation created");
         op.setShowsPrintPanel(false);
         op.setShowsProgressPanel(false);
         op.setCanSpawnSeparateThread(false);
@@ -387,6 +405,7 @@ impl WebKitBackend {
                 std::ptr::null_mut(),
             );
         }
+        trace("print: modal operation started");
         let state = self.delegate.ivars();
         if !pump_until(|| state.print_done.get().is_some(), PRINT_TIMEOUT) {
             return Err("print operation timed out".into());

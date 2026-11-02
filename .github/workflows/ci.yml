@@ -25,6 +25,7 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -39,8 +40,13 @@ jobs:
       - run: cargo build --locked
       - run: cargo run --locked -- doctor --backend chrome # runners ship with Chrome
       - if: runner.os == 'macOS'
-        run: cargo run --locked -- doctor --backend webkit
-      - run: cargo test --locked
+        # perl alarm: a hung WebKit start fails in 2 minutes instead of hanging the job
+        run: perl -e 'alarm 120; exec @ARGV' cargo run --locked -- doctor --backend webkit
+        env:
+          DOTEML_DEBUG: "1"
+      - run: cargo test --locked -- --nocapture
+        env:
+          DOTEML_DEBUG: "1"
 
   msrv:
     runs-on: ubuntu-latest
