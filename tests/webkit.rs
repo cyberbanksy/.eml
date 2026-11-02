@@ -1,0 +1,146 @@
+//! WebKit backend end-to-end tests. WebKit must run on the process main thread, which
+//! `cargo test` worker threads are not, so every test drives the built binary.
+#![cfg(target_os = "macos")]
+
+mod common;
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use assert_cmd::Command;
+use common::*;
+use predicates::str::contains;
+
+fn webkit() -> Command {
+    let mut cmd = Command::cargo_bin("doteml").unwrap();
+    cmd.args(["--backend", "webkit"])
+        .timeout(Duration::from_secs(120));
+    cmd
+}
+
+struct Tracker {
+    base: String,
+    hits: Arc<Mutex<Vec<String>>>,
+    stop: Arc<AtomicBool>,
+}
+
+impl Tracker {
+    fn start() -> Tracker {
+        let server = tiny_http::Server::http("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", server.server_addr().to_ip().unwrap());
+        let hits = Arc::new(Mutex::new(Vec::new()));
+        let stop = Arc::new(AtomicBool::new(false));
+        let (h, s) = (hits.clone(), stop.clone());
+        std::thread::spawn(move || {
+            while !s.load(Ordering::Relaxed) {
+                if let Ok(Some(req)) = server.recv_timeout(Duration::from_millis(100)) {
+                    h.lock().unwrap().push(req.url().to_string());
+                    let _ = req.respond(tiny_http::Response::empty(404));
+                }
+            }
+        });
+        Tracker { base, hits, stop }
+    }
+}
+
+impl Drop for Tracker {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+    }
+}
+
+#[test]
+fn webkit_legoland_pdf() {
+    let d = tempfile::tempdir().unwrap();
+    let out = d.path().join("legoland.pdf");
+    webkit()
+        .arg(legoland())
+        .arg("-o")
+        .arg(&out)
+        .assert()
+        .success();
+    let bytes = std::fs::read(&out).unwrap();
+    assert!(bytes.starts_with(b"%PDF-"));
+    assert!(bytes.len() > 1000);
+    let doc = lopdf::Document::load(&out).unwrap();
+    assert!(!doc.get_pages().is_empty());
+    assert!(pdf_info(&out).contains_key("EmlSHA256"));
+}
+
+#[test]
+fn webkit_legoland_png() {
+    let d = tempfile::tempdir().unwrap();
+    let out = d.path().join("legoland.png");
+    webkit()
+        .arg(legoland())
+        .args(["-f", "png", "-o"])
+        .arg(&out)
+        .assert()
+        .success();
+    let bytes = std::fs::read(&out).unwrap();
+    assert!(bytes.starts_with(b"\x89PNG"));
+    assert!(bytes.len() > 1000, "{} bytes", bytes.len());
+}
+
+#[test]
+fn webkit_simple_jpg() {
+    let (d, p) = simple_eml();
+    let out = d.path().join("simple.jpg");
+    webkit()
+        .arg(&p)
+        .args(["-f", "jpg", "-o"])
+        .arg(&out)
+        .assert()
+        .success();
+    assert!(std::fs::read(&out).unwrap().starts_with(&[0xFF, 0xD8]));
+}
+
+#[test]
+fn webkit_js_does_not_run() {
+    let (d, p) = security_eml(
+        r#"<p id="x">static text</p><script>document.getElementById('x').textContent='JSRAN'</script>"#,
+    );
+    let out = d.path().join("o.pdf");
+    webkit().arg(&p).arg("-o").arg(&out).assert().success();
+    let text = pdf_text(&out);
+    assert!(text.contains("static text"), "{text}");
+    assert!(!text.contains("JSRAN"));
+}
+
+#[test]
+fn webkit_blocks_remote_by_default() {
+    let t = Tracker::start();
+    let (d, p) = security_eml(&format!(r#"<img src="{}/pixel.gif"><p>hi</p>"#, t.base));
+    webkit()
+        .arg(&p)
+        .args(["-f", "png", "-o"])
+        .arg(d.path().join("o.png"))
+        .assert()
+        .success();
+    assert!(t.hits.lock().unwrap().is_empty());
+}
+
+#[test]
+fn webkit_remote_opt_in() {
+    let t = Tracker::start();
+    let (d, p) = security_eml(&format!(r#"<img src="{}/pixel.gif"><p>hi</p>"#, t.base));
+    webkit()
+        .arg(&p)
+        .args(["-f", "png", "--remote-images", "-o"])
+        .arg(d.path().join("o.png"))
+        .assert()
+        .success();
+    assert_eq!(*t.hits.lock().unwrap(), ["/pixel.gif"]);
+}
+
+#[test]
+fn webkit_doctor() {
+    Command::cargo_bin("doteml")
+        .unwrap()
+        .args(["doctor", "--backend", "webkit"])
+        .timeout(Duration::from_secs(60))
+        .assert()
+        .success()
+        .stdout(contains("webkit"));
+}
