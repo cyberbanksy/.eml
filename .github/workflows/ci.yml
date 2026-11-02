@@ -8,27 +8,50 @@ on:
 permissions:
   contents: read
 
-jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.13"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev]"
-      - run: playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }} chromium
-      - run: pytest -v
+env:
+  CARGO_TERM_COLOR: always
 
+jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
-      - run: uvx ruff check src/ tests/
-      - run: uvx ruff format --check src/ tests/
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo build --locked
+      - run: cargo run --locked -- doctor --backend chrome # runners ship with Chrome
+      - if: runner.os == 'macOS'
+        # perl alarm: a hung WebKit start fails in 2 minutes instead of hanging the job
+        run: perl -e 'alarm 120; exec @ARGV' cargo run --locked -- doctor --backend webkit
+        env:
+          DOTEML_DEBUG: "1"
+      - run: cargo test --locked -- --nocapture
+        env:
+          DOTEML_DEBUG: "1"
+
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --locked --all-targets
