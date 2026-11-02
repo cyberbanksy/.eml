@@ -12,17 +12,17 @@
 
 ---
 
-- **Faithful rendering** — headless Chromium, the same engine as Chrome, so marketing-grade HTML email looks right.
+- **Tiny install** — two pure-Python dependencies (`click`, `pypdf`). No Playwright, no bundled browser, no Cairo/Pango/GTK.
+- **Faithful rendering** — drives the Chrome, Edge, or Chromium you already have, so marketing-grade HTML email looks right.
 - **Private by default** — JavaScript off, remote images and tracking pixels blocked, redirects stripped.
 - **Verifiable** — sender, recipients, date, and Message-ID are printed on the page *and* written into the PDF's metadata.
 - **Right-click on every OS** — Finder Quick Action, Windows *Send to*, Linux *Open With*.
-- **No Cairo / Pango / GTK** — just `pip` and a one-time Chromium download.
 
 ## Install
 
 ```bash
 pipx install git+https://github.com/cyberbanksy/.eml
-playwright install chromium
+doteml doctor   # confirms a browser was found
 ```
 
 <details>
@@ -36,9 +36,13 @@ uv tool install git+https://github.com/cyberbanksy/.eml
 pip install git+https://github.com/cyberbanksy/.eml
 ```
 
-Then run `playwright install chromium` once. On a bare Linux server, use `playwright install --with-deps chromium` to pull in the shared libraries Chromium needs.
-
 </details>
+
+### Browser
+
+PDF, PNG, and JPG are rendered by a Chromium-based browser that's already on your machine: Google Chrome, Microsoft Edge (preinstalled on Windows), Chromium, or Brave, version 110 or newer. `doteml doctor` shows which one it found. If none is installed, it tells you where to [get Chrome](https://www.google.com/chrome/). To use a specific build, set `DOTEML_BROWSER=/path/to/chrome`.
+
+HTML output needs no browser at all.
 
 ## Usage
 
@@ -111,7 +115,6 @@ A failed file is reported and the batch continues; the exit code is non-zero if 
 ```bash
 git clone https://github.com/cyberbanksy/.eml.git && cd .eml
 pip install -e ".[dev]"
-playwright install chromium
 pytest
 ```
 
