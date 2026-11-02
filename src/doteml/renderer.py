@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import base64
-import contextlib
 import email.utils
 import html as html_mod
-import os
+import math
 import re
+import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
+from .browser import DOWNLOAD_URL, MIN_VERSION, BrowserNotFoundError, find_browser, parse_major
+from .cdp import Browser
 from .parser import ParsedEmail
-
-if TYPE_CHECKING:
-    from playwright.sync_api import Browser, Playwright, Route
 
 _HEADER_CSS = """\
 #doteml-hdr,#doteml-hdr *{box-sizing:border-box}
@@ -28,7 +27,7 @@ margin:0;padding:24px 24px 0;color:#1a1a1a;line-height:1.5;background:#fff}
 _CID_RE = re.compile(r"""(["'(\s=])cid:([^"'\s)>]+)""", re.IGNORECASE)
 _META_REFRESH_RE = re.compile(r"<meta\b[^>]*http-equiv\s*=\s*[\"']?refresh[^>]*>", re.IGNORECASE)
 _BASE_RE = re.compile(r"<base\b[^>]*>", re.IGNORECASE)
-_REMOTE_TYPES = ("image", "stylesheet", "font")
+_REMOTE_TYPES = ("Image", "Stylesheet", "Font")
 
 
 def _csp(allow_remote: bool) -> str:
@@ -131,68 +130,125 @@ def write_pdf_metadata(path: Path, eml: ParsedEmail) -> None:
 
 
 class Renderer:
-    """Holds one headless Chromium for a batch of conversions."""
+    """Drives one headless browser for a batch of conversions."""
 
     def __init__(self, *, allow_remote: bool = False, timeout_ms: int = 15_000) -> None:
         self.allow_remote = allow_remote
         self.timeout_ms = timeout_ms
-        self._pw: Playwright | None = None
         self._browser: Browser | None = None
+        self._loaded: set[str] = set()
+        self.executable = ""
+        self.product = ""
 
     def __enter__(self) -> Renderer:
-        from playwright.sync_api import Error, sync_playwright
-
-        self._pw = sync_playwright().start()
-        exe = os.environ.get("DOTEML_CHROMIUM_PATH")
-        try:
-            self._browser = self._pw.chromium.launch(executable_path=exe or None)
-        except Error as e:
-            self._pw.stop()
-            if "Executable doesn't exist" in str(e):
-                raise RuntimeError("Chromium not found. Run: playwright install chromium") from e
-            raise
+        self.executable = find_browser()
+        self._browser = Browser(self.executable)
+        self.product = self._browser.send("Browser.getVersion").get("product", "")
+        major = parse_major(self.product)
+        if major is not None and major < MIN_VERSION:
+            self._browser.close()
+            raise BrowserNotFoundError(
+                f"{self.product} at {self.executable} is too old (need {MIN_VERSION}+).\n"
+                f"  Update it, or install Google Chrome: {DOWNLOAD_URL}"
+            )
         return self
 
     def __exit__(self, *exc: object) -> None:
         if self._browser:
             self._browser.close()
-        if self._pw:
-            self._pw.stop()
 
-    def _route(self, route: Route) -> None:
-        local = route.request.url.startswith(("data:", "about:"))
-        remote_ok = self.allow_remote and route.request.resource_type in _REMOTE_TYPES
-        if local or remote_ok:
-            route.continue_()
-        else:
-            route.abort()
+    def _on_event(self, session: str, doc_url: str, message: dict[str, Any]) -> None:
+        method = message["method"]
+        if method == "Page.loadEventFired":
+            self._loaded.add(session)
+        elif method == "Fetch.requestPaused":
+            assert self._browser is not None
+            params = message["params"]
+            url = params["request"]["url"]
+            allowed = (
+                url == doc_url
+                or url.startswith(("data:", "about:"))
+                or (
+                    self.allow_remote
+                    and url.startswith(("http:", "https:"))
+                    and params.get("resourceType") in _REMOTE_TYPES
+                )
+            )
+            if allowed:
+                self._browser.notify(
+                    "Fetch.continueRequest", {"requestId": params["requestId"]}, session
+                )
+            else:
+                self._browser.notify(
+                    "Fetch.failRequest",
+                    {"requestId": params["requestId"], "errorReason": "BlockedByClient"},
+                    session,
+                )
 
     def render(self, html: str, output: Path, fmt: str, *, quality: int = 85) -> None:
-        from playwright.sync_api import TimeoutError as PlaywrightTimeout
+        if fmt not in ("pdf", "png", "jpg"):
+            raise ValueError(f"Unsupported render format: {fmt}")
+        browser = self._browser
+        assert browser is not None, "use Renderer as a context manager"
 
-        assert self._browser is not None, "use Renderer as a context manager"
-        context = self._browser.new_context(
-            java_script_enabled=False, viewport={"width": 800, "height": 600}
-        )
-        try:
-            context.route("**/*", self._route)
-            page = context.new_page()
-            # Render whatever loaded; a slow remote image shouldn't fail the job.
-            with contextlib.suppress(PlaywrightTimeout):
-                page.set_content(html, wait_until="load", timeout=self.timeout_ms)
-            if fmt == "pdf":
-                margin = "0.4in"
-                page.pdf(
-                    path=str(output),
-                    format="Letter",
-                    print_background=True,
-                    margin={"top": margin, "bottom": margin, "left": margin, "right": margin},
+        with tempfile.TemporaryDirectory(prefix="doteml-", ignore_cleanup_errors=True) as tmp:
+            doc = Path(tmp) / "email.html"
+            doc.write_text(html, encoding="utf-8")
+            doc_url = doc.as_uri()
+
+            target = browser.send("Target.createTarget", {"url": "about:blank"})["targetId"]
+            session = browser.send("Target.attachToTarget", {"targetId": target, "flatten": True})[
+                "sessionId"
+            ]
+            browser.on(session, lambda m: self._on_event(session, doc_url, m))
+            try:
+                browser.send("Fetch.enable", {"patterns": [{"urlPattern": "*"}]}, session)
+                browser.send("Page.enable", {}, session)
+                browser.send("Emulation.setScriptExecutionDisabled", {"value": True}, session)
+                browser.send(
+                    "Emulation.setDeviceMetricsOverride",
+                    {"width": 800, "height": 600, "deviceScaleFactor": 1, "mobile": False},
+                    session,
                 )
-            elif fmt == "png":
-                page.screenshot(path=str(output), full_page=True, type="png")
-            elif fmt == "jpg":
-                page.screenshot(path=str(output), full_page=True, type="jpeg", quality=quality)
-            else:
-                raise ValueError(f"Unsupported render format: {fmt}")
-        finally:
-            context.close()
+                browser.send("Page.navigate", {"url": doc_url}, session)
+                # Render whatever loaded; a slow remote image shouldn't fail the job.
+                browser.pump_until(lambda: session in self._loaded, self.timeout_ms / 1000)
+
+                if fmt == "pdf":
+                    margin = 0.4
+                    data = browser.send(
+                        "Page.printToPDF",
+                        {
+                            "printBackground": True,
+                            "paperWidth": 8.5,
+                            "paperHeight": 11,
+                            "marginTop": margin,
+                            "marginBottom": margin,
+                            "marginLeft": margin,
+                            "marginRight": margin,
+                        },
+                        session,
+                    )["data"]
+                else:
+                    metrics = browser.send("Page.getLayoutMetrics", {}, session)
+                    size = metrics.get("cssContentSize") or metrics["contentSize"]
+                    clip = {
+                        "x": 0,
+                        "y": 0,
+                        "width": max(1, math.ceil(size["width"])),
+                        "height": max(1, math.ceil(size["height"])),
+                        "scale": 1,
+                    }
+                    params: dict[str, Any] = {
+                        "format": "png" if fmt == "png" else "jpeg",
+                        "captureBeyondViewport": True,
+                        "clip": clip,
+                    }
+                    if fmt == "jpg":
+                        params["quality"] = quality
+                    data = browser.send("Page.captureScreenshot", params, session)["data"]
+                output.write_bytes(base64.b64decode(data))
+            finally:
+                browser.off(session)
+                self._loaded.discard(session)
+                browser.send("Target.closeTarget", {"targetId": target})
