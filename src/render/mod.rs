@@ -146,6 +146,7 @@ pub(crate) fn file_url(path: &Path) -> String {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
     #[test]
     fn file_url_unix() {
         assert_eq!(
