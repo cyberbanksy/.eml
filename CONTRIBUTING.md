@@ -5,7 +5,7 @@
 ```bash
 git clone https://github.com/cyberbanksy/.eml.git && cd .eml
 pip install -e ".[dev]"
-playwright install chromium
+doteml doctor   # checks for Chrome / Edge / Chromium
 ```
 
 ## Tests
@@ -16,7 +16,7 @@ pytest -v        # verbose
 pytest -k e2e    # only E2E tests
 ```
 
-To use an existing Chromium instead of Playwright's download, set `DOTEML_CHROMIUM_PATH=/path/to/chrome`.
+To test against a specific browser build, set `DOTEML_BROWSER=/path/to/chrome`.
 
 ## Lint
 
