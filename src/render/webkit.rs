@@ -26,7 +26,7 @@ use objc2_web_kit::{
 
 use super::{Backend, BackendInfo, RenderFormat, RenderOptions};
 use crate::error::{Error, Result};
-use crate::fsutil::{private_tempdir, write_output, write_private};
+use crate::fsutil::{private_tempdir, write_output};
 use crate::html::{FRAME_STATE_SCRIPT, RESIZE_SCRIPT};
 
 const WIDTH: f64 = 800.0;
@@ -285,17 +285,15 @@ impl WebKitBackend {
         })
     }
 
-    fn load(&self, doc: &Path, dir: &Path) -> Result<()> {
+    /// Load the page from memory. A page loaded from a file:// URL through WebKit's
+    /// restricted file access never renders its srcdoc body frame, so no file is staged.
+    fn load(&self, html: &str) -> Result<()> {
         self.delegate.reset();
         trace("load: start");
-        let doc_url =
-            NSURL::fileURLWithPath_isDirectory(&NSString::from_str(&doc.to_string_lossy()), false);
-        let dir_url =
-            NSURL::fileURLWithPath_isDirectory(&NSString::from_str(&dir.to_string_lossy()), true);
         self.resize(INITIAL_HEIGHT);
         unsafe {
             self.webview
-                .loadFileURL_allowingReadAccessToURL(&doc_url, &dir_url)
+                .loadHTMLString_baseURL(&NSString::from_str(html), None)
         };
         // Render whatever loaded on timeout, like the Chrome backend.
         let state = self.delegate.ivars();
@@ -496,10 +494,7 @@ impl Backend for WebKitBackend {
     }
 
     fn render(&mut self, html: &str, output: &Path, fmt: RenderFormat, quality: u8) -> Result<()> {
-        let dir = private_tempdir("doteml-")?;
-        let doc = dir.path().join(DOC_NAME);
-        write_private(&doc, html.as_bytes())?;
-        self.load(&doc, dir.path())?;
+        self.load(html)?;
 
         self.wait_for_frame();
         let height = self.content_height();
