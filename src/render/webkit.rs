@@ -27,7 +27,7 @@ use objc2_web_kit::{
 use super::{Backend, BackendInfo, RenderFormat, RenderOptions};
 use crate::error::{Error, Result};
 use crate::fsutil::{private_tempdir, write_output, write_private};
-use crate::html::RESIZE_SCRIPT;
+use crate::html::{FRAME_STATE_SCRIPT, RESIZE_SCRIPT};
 
 const WIDTH: f64 = 800.0;
 const INITIAL_HEIGHT: f64 = 600.0;
@@ -135,9 +135,15 @@ define_class!(
                 .and_then(|u| u.absoluteString())
                 .map(|s| s.to_string())
                 .unwrap_or_default();
-            let allow = url.starts_with("about:")
+            // Empty/about: covers the body frame's internal srcdoc navigation.
+            let allow = url.is_empty()
+                || url.starts_with("about:")
                 || (url.starts_with("file://")
                     && url.split('#').next().is_some_and(|u| u.ends_with(DOC_NAME)));
+            trace(&format!(
+                "navigation {} {url:?}",
+                if allow { "allow" } else { "cancel" }
+            ));
             handler.call((if allow {
                 WKNavigationActionPolicy::Allow
             } else {
@@ -327,8 +333,47 @@ impl WebKitBackend {
                 .evaluateJavaScript_completionHandler(&script, Some(&block))
         };
         pump_until(|| done.get(), Duration::from_secs(5));
-        trace("height probe returned");
+        trace(&format!("height probe returned {:?}", result.get()));
         result.get().filter(|h| *h >= 1.0).unwrap_or(INITIAL_HEIGHT)
+    }
+
+    /// Evaluate a script that returns a string (page JS is off; injected scripts still run).
+    fn eval_string(&self, script: &str) -> Option<String> {
+        let result: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+        let done = Rc::new(Cell::new(false));
+        let (r, d) = (result.clone(), done.clone());
+        let block = RcBlock::new(move |value: *mut AnyObject, err: *mut NSError| {
+            // SAFETY: null or a valid object for the duration of the callback.
+            match unsafe { value.as_ref() }.and_then(|v| v.downcast_ref::<NSString>()) {
+                Some(s) => *r.borrow_mut() = Some(s.to_string()),
+                None => *r.borrow_mut() = Some(format!("error: {}", ns_error(err))),
+            }
+            d.set(true);
+        });
+        unsafe {
+            self.webview
+                .evaluateJavaScript_completionHandler(&NSString::from_str(script), Some(&block))
+        };
+        pump_until(|| done.get(), Duration::from_secs(5));
+        result.borrow().clone()
+    }
+
+    /// The main frame's load event can fire before the srcdoc body frame has laid out;
+    /// wait until the frame reports a complete document with content.
+    fn wait_for_frame(&self) {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            let state = self.eval_string(FRAME_STATE_SCRIPT).unwrap_or_default();
+            trace(&format!("frame state {state}"));
+            let ready = state
+                .strip_prefix("complete:")
+                .and_then(|n| n.parse::<i64>().ok())
+                .is_some_and(|n| n >= 1);
+            if ready || Instant::now() >= deadline {
+                return;
+            }
+            pump_until(|| false, Duration::from_millis(50));
+        }
     }
 
     fn snapshot(&self, height: f64, fmt: RenderFormat, quality: u8) -> Result<Vec<u8>> {
@@ -456,6 +501,7 @@ impl Backend for WebKitBackend {
         write_private(&doc, html.as_bytes())?;
         self.load(&doc, dir.path())?;
 
+        self.wait_for_frame();
         let height = self.content_height();
         self.resize(height);
         pump_until(|| false, Duration::from_millis(100)); // let layout settle at the new size

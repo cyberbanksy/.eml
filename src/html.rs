@@ -46,6 +46,12 @@ if(f){var d=f.contentDocument;\
 f.style.height=Math.max(d.documentElement.scrollHeight,d.body?d.body.scrollHeight:0)+'px'}\
 return Math.ceil(Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0))})()";
 
+/// Reports the body frame's load state: `complete:<child nodes>` once it is ready.
+pub const FRAME_STATE_SCRIPT: &str = "\
+(function(){var f=document.getElementById('doteml-body');if(!f)return 'noframe';\
+try{var d=f.contentDocument;if(!d)return 'nodoc';\
+return d.readyState+':'+(d.body?d.body.childNodes.length:-1)}catch(e){return 'err:'+e}})()";
+
 static CID_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"(?i)(["'(\s=])cid:([^"'\s)>]+)"#).unwrap());
 static META_REFRESH_RE: LazyLock<Regex> =
