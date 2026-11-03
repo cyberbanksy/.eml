@@ -81,6 +81,7 @@ fn webkit_legoland_png() {
     let bytes = std::fs::read(&out).unwrap();
     assert!(bytes.starts_with(b"\x89PNG"));
     assert!(bytes.len() > 1000, "{} bytes", bytes.len());
+    assert!(png_height(&out) > 1000, "png height {}", png_height(&out));
 }
 
 #[test]
@@ -143,4 +144,34 @@ fn webkit_doctor() {
         .assert()
         .success()
         .stdout(contains("webkit"));
+}
+
+#[test]
+fn webkit_body_cannot_overpaint_header() {
+    let (d1, benign) = security_eml("<p>real body</p>");
+    let (d2, attack) = security_eml(OVERLAY_ATTACK);
+    let a = d1.path().join("a.png");
+    let b = d2.path().join("b.png");
+    webkit()
+        .args(["-f", "png", "-o"])
+        .arg(&a)
+        .arg(&benign)
+        .assert()
+        .success();
+    webkit()
+        .args(["-f", "png", "-o"])
+        .arg(&b)
+        .arg(&attack)
+        .assert()
+        .success();
+    let (pa, pb) = (png_pixels(&a), png_pixels(&b));
+    assert_eq!(pa.0, pb.0);
+    let header_rows = 150u32;
+    let row_bytes = (pa.0 * 4) as usize;
+    assert_eq!(
+        &pa.2[..row_bytes * header_rows as usize],
+        &pb.2[..row_bytes * header_rows as usize]
+    );
+    assert!(!has_red(&pb, 0, header_rows));
+    assert!(has_red(&pb, header_rows, pb.1));
 }

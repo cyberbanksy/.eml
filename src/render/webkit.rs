@@ -1,6 +1,7 @@
 //! macOS backend: renders with the system WebKit, so no Chrome is needed.
 
 use std::cell::{Cell, RefCell};
+use std::ffi::c_void;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -25,6 +26,8 @@ use objc2_web_kit::{
 
 use super::{Backend, BackendInfo, RenderFormat, RenderOptions};
 use crate::error::{Error, Result};
+use crate::fsutil::{private_tempdir, write_output, write_private};
+use crate::html::RESIZE_SCRIPT;
 
 const WIDTH: f64 = 800.0;
 const INITIAL_HEIGHT: f64 = 600.0;
@@ -46,6 +49,27 @@ fn trace(stage: &str) {
     if std::env::var_os("DOTEML_DEBUG").is_some() {
         eprintln!("[webkit] {stage}");
     }
+}
+
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGSessionCopyCurrentDictionary() -> *const c_void;
+}
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    fn CFRelease(cf: *const c_void);
+}
+
+/// WebKit needs a window-server session; over SSH or from launchd there is none and
+/// AppKit would hang or abort instead of returning an error.
+fn has_gui_session() -> bool {
+    // SAFETY: plain C calls; the dictionary is released right away.
+    let dict = unsafe { CGSessionCopyCurrentDictionary() };
+    if dict.is_null() {
+        return false;
+    }
+    unsafe { CFRelease(dict) };
+    true
 }
 
 fn backend_err(msg: impl Into<String>) -> Error {
@@ -190,6 +214,12 @@ impl WebKitBackend {
         let mtm = MainThreadMarker::new()
             .ok_or_else(|| backend_err("the webkit backend must be used from the main thread"))?;
         trace("main thread ok");
+        if !has_gui_session() {
+            return Err(backend_err(
+                "no graphical session (SSH or background process); use --backend chrome",
+            ));
+        }
+        trace("gui session ok");
 
         // WebKit needs AppKit initialised, but a CLI must not show a Dock icon or steal focus.
         let app = NSApplication::sharedApplication(mtm);
@@ -206,7 +236,7 @@ impl WebKitBackend {
                 .setAllowsContentJavaScript(false);
         }
 
-        let rule_store_dir = tempfile::Builder::new().prefix("doteml-rules-").tempdir()?;
+        let rule_store_dir = private_tempdir("doteml-rules-")?;
         let rules = compile_rules(mtm, rule_store_dir.path(), opts.allow_remote, opts.timeout)?;
         trace("content rules compiled");
         unsafe { config.userContentController().addContentRuleList(&rules) };
@@ -278,7 +308,8 @@ impl WebKitBackend {
         self.window.setContentSize(NSSize::new(WIDTH, height));
     }
 
-    /// Full document height in CSS pixels (page JS is off; this injected probe still runs).
+    /// Fits the body frame to its content and returns the full document height in CSS
+    /// pixels (page JS is off; this injected probe still runs).
     fn content_height(&self) -> f64 {
         let result: Rc<Cell<Option<f64>>> = Rc::new(Cell::new(None));
         let done = Rc::new(Cell::new(false));
@@ -290,9 +321,7 @@ impl WebKitBackend {
             }
             d.set(true);
         });
-        let script = NSString::from_str(
-            "Math.ceil(Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0))",
-        );
+        let script = NSString::from_str(RESIZE_SCRIPT);
         unsafe {
             self.webview
                 .evaluateJavaScript_completionHandler(&script, Some(&block))
@@ -422,9 +451,9 @@ impl Backend for WebKitBackend {
     }
 
     fn render(&mut self, html: &str, output: &Path, fmt: RenderFormat, quality: u8) -> Result<()> {
-        let dir = tempfile::Builder::new().prefix("doteml-").tempdir()?;
+        let dir = private_tempdir("doteml-")?;
         let doc = dir.path().join(DOC_NAME);
-        std::fs::write(&doc, html)?;
+        write_private(&doc, html.as_bytes())?;
         self.load(&doc, dir.path())?;
 
         let height = self.content_height();
@@ -434,12 +463,12 @@ impl Backend for WebKitBackend {
         let result = match fmt {
             RenderFormat::Png | RenderFormat::Jpg => self
                 .snapshot(height, fmt, quality)
-                .and_then(|bytes| Ok(std::fs::write(output, bytes)?)),
+                .and_then(|bytes| write_output(output, &bytes)),
             // A single page as tall as the email. AppKit's paginated print path
             // (NSPrintOperation) blocks forever in a CLI, so it is not used.
             RenderFormat::Pdf => self
                 .create_pdf(height)
-                .and_then(|bytes| Ok(std::fs::write(output, bytes)?)),
+                .and_then(|bytes| write_output(output, &bytes)),
         };
         // Release the document before the staging directory goes away.
         unsafe {

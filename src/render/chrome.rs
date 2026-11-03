@@ -10,6 +10,8 @@ use super::{Backend, BackendInfo, RenderFormat, RenderOptions, check_version, fi
 use crate::browser::find_browser;
 use crate::cdp::Browser;
 use crate::error::{Error, Result};
+use crate::fsutil::{private_tempdir, write_output, write_private};
+use crate::html::RESIZE_SCRIPT;
 
 const REMOTE_TYPES: [&str; 3] = ["Image", "Stylesheet", "Font"];
 const LAUNCH_TIMEOUT: Duration = Duration::from_secs(30);
@@ -56,9 +58,9 @@ impl Backend for ChromeBackend {
     }
 
     fn render(&mut self, html: &str, output: &Path, fmt: RenderFormat, quality: u8) -> Result<()> {
-        let dir = tempfile::Builder::new().prefix("doteml-").tempdir()?;
+        let dir = private_tempdir("doteml-")?;
         let doc = dir.path().join("email.html");
-        std::fs::write(&doc, html)?;
+        write_private(&doc, html.as_bytes())?;
         let doc_url = file_url(&doc);
         let b = &mut self.browser;
 
@@ -127,6 +129,12 @@ impl Backend for ChromeBackend {
             // Render whatever loaded; a slow remote image shouldn't fail the job.
             let flag = loaded.clone();
             b.pump_until(move || flag.get(), self.opts.timeout)?;
+            // Page scripts are off, but DevTools can still evaluate: fit the body frame.
+            b.send(
+                "Runtime.evaluate",
+                json!({"expression": RESIZE_SCRIPT, "returnByValue": true}),
+                s,
+            )?;
 
             let data = match fmt {
                 RenderFormat::Pdf => {
@@ -173,7 +181,7 @@ impl Backend for ChromeBackend {
 
         b.off(&session);
         let _ = b.send("Target.closeTarget", json!({"targetId": target_id}), None);
-        std::fs::write(output, result?)?;
+        write_output(output, &result?)?;
         Ok(())
     }
 }

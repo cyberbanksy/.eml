@@ -107,3 +107,70 @@ fn pdf_metadata() {
         info["CreationDate"]
     );
 }
+
+#[test]
+fn body_cannot_overpaint_header() {
+    let (d1, benign) = security_eml("<p>real body</p>");
+    let (d2, attack) = security_eml(OVERLAY_ATTACK);
+    let opts = ConvertOptions {
+        format: Format::Png,
+        ..Default::default()
+    };
+    let a = d1.path().join("a.png");
+    let b = d2.path().join("b.png");
+    convert(&benign, Some(&a), &opts, None).unwrap();
+    convert(&attack, Some(&b), &opts, None).unwrap();
+    let (pa, pb) = (png_pixels(&a), png_pixels(&b));
+    assert_eq!(pa.0, pb.0);
+    // The header region is pixel-identical; the attack can only paint inside its own frame.
+    let header_rows = 150;
+    let row_bytes = (pa.0 * 4) as usize;
+    assert_eq!(
+        &pa.2[..row_bytes * header_rows],
+        &pb.2[..row_bytes * header_rows],
+        "header pixels changed"
+    );
+    assert!(
+        !has_red(&pb, 0, header_rows as u32),
+        "red overlay reached the header"
+    );
+    assert!(
+        has_red(&pb, header_rows as u32, pb.1),
+        "attack content was not rendered at all"
+    );
+
+    let pdf = d2.path().join("b.pdf");
+    convert(&attack, Some(&pdf), &ConvertOptions::default(), None).unwrap();
+    // Body text is still present as text (contained, not dropped). The header's
+    // text is checked via pixels above: lopdf cannot extract the header font.
+    assert!(
+        pdf_text(&pdf).contains("SPOOFED"),
+        "body text should still be present"
+    );
+}
+
+#[test]
+fn oversized_eml_refused() {
+    let d = tempfile::tempdir().unwrap();
+    let big = d.path().join("big.eml");
+    let f = std::fs::File::create(&big).unwrap();
+    f.set_len(doteml::convert::MAX_EML_BYTES + 1).unwrap();
+    let err = convert(&big, None, &ConvertOptions::default(), None).unwrap_err();
+    assert!(matches!(err, doteml::Error::TooLarge { .. }), "{err}");
+}
+
+#[cfg(unix)]
+#[test]
+fn output_symlink_refused() {
+    let (d, p) = security_eml("<p>x</p>");
+    let target = d.path().join("precious.txt");
+    std::fs::write(&target, "keep").unwrap();
+    let link = d.path().join("out.html");
+    std::os::unix::fs::symlink(&target, &link).unwrap();
+    let opts = ConvertOptions {
+        format: Format::Html,
+        ..Default::default()
+    };
+    assert!(convert(&p, Some(&link), &opts, None).is_err());
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "keep");
+}
