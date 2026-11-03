@@ -6,6 +6,8 @@ pub enum Error {
     NotFound(PathBuf),
     #[error("Expected .eml file, got: {0}")]
     NotEml(String),
+    #[error("File is {size} bytes; the limit is {limit} bytes")]
+    TooLarge { size: u64, limit: u64 },
     #[error("{0}")]
     BrowserNotFound(String),
     #[error("{0}")]

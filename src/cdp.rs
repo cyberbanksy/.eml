@@ -17,6 +17,8 @@ use crate::error::{Error, Result};
 /// Event handler for one session. Returns notifications to send back (method, params).
 pub type Handler = Box<dyn FnMut(&Value) -> Vec<(String, Value)>>;
 
+const MAX_MESSAGE_BYTES: usize = 256 * 1024 * 1024;
+
 pub struct Browser {
     child: Child,
     log: File,
@@ -68,7 +70,7 @@ fn is_timeout(err: &tungstenite::Error) -> bool {
 
 impl Browser {
     pub fn launch(executable: &Path, timeout: Duration) -> Result<Browser> {
-        let profile = tempfile::Builder::new().prefix("doteml-").tempdir()?.keep();
+        let profile = crate::fsutil::private_tempdir("doteml-")?.keep();
         // A file, not a pipe: Chrome logs a lot and would block once a pipe buffer fills.
         let log = tempfile::tempfile()?;
         let mut cmd = Command::new(executable);
@@ -143,9 +145,10 @@ impl Browser {
         )?;
         let stream = TcpStream::connect(("127.0.0.1", port))?;
         stream.set_read_timeout(Some(self.timeout))?;
+        // Screenshots of long emails arrive as one large base64 message; cap, don't disable.
         let config = WebSocketConfig::default()
-            .max_message_size(None)
-            .max_frame_size(None);
+            .max_message_size(Some(MAX_MESSAGE_BYTES))
+            .max_frame_size(Some(MAX_MESSAGE_BYTES));
         let (ws, _) = tungstenite::client::client_with_config(
             format!("ws://127.0.0.1:{port}{path}"),
             stream,
