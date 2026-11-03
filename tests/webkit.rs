@@ -194,7 +194,9 @@ fn webkit_body_cannot_overpaint_header() {
 }
 
 /// Diagnostic: which page variants load the body frame under WebKit. Prints a table
-/// to the CI log and fails only if none of them work.
+/// to the CI log and fails only if none of them work. Every variant gives the frame a
+/// fixed 900px height so the check (red pixels below the header) does not depend on
+/// the auto-sizing probe.
 #[test]
 fn webkit_frame_variants() {
     use doteml::html::build_html;
@@ -203,13 +205,14 @@ fn webkit_frame_variants() {
         html_body: "<div style=\"height:800px;background:#ff0000\">body</div>".into(),
         ..Default::default()
     };
-    let base = build_html(&eml, false);
+    let base = build_html(&eml, false).replacen("height:150px;", "height:900px;", 1);
+    assert!(base.contains("height:900px;"));
     let csp_start = base
         .find("<meta http-equiv=\"Content-Security-Policy\"")
         .unwrap();
     let csp_end = base[csp_start..].find('>').unwrap() + csp_start + 1;
-    let csp_meta = &base[csp_start..csp_end];
-    let no_csp = base.replacen(csp_meta, "", 1);
+    let csp_meta = base[csp_start..csp_end].to_string();
+    let no_csp = base.replacen(&csp_meta, "", 1);
     let self_csp = base.replacen(
         "frame-src about:;",
         "frame-src 'self' about: data: blob:;",
@@ -222,6 +225,11 @@ fn webkit_frame_variants() {
         "frame-src about:; child-src about:;",
         1,
     );
+    let no_script = {
+        let s = base.find("<script nonce=").unwrap();
+        let e = base[s..].find("</script>").unwrap() + s + "</script>".len();
+        base[..s].to_string() + &base[e..]
+    };
     let variants = [
         ("baseline", base.clone()),
         ("no-csp", no_csp),
@@ -229,6 +237,7 @@ fn webkit_frame_variants() {
         ("no-sandbox", no_sandbox),
         ("no-csp-no-sandbox", no_csp_no_sandbox),
         ("child-src", child_src),
+        ("no-script", no_script),
     ];
     let d = tempfile::tempdir().unwrap();
     let mut worked = Vec::new();
@@ -236,15 +245,17 @@ fn webkit_frame_variants() {
         let page = d.path().join(format!("{name}.html"));
         std::fs::write(&page, html).unwrap();
         let out = d.path().join(format!("{name}.png"));
-        webkit()
-            .args(["render-html", "-f", "png", "-o"])
+        let mut cmd = Command::cargo_bin("doteml").unwrap();
+        cmd.args(["render-html", "--backend", "webkit", "-f", "png", "-o"])
             .arg(&out)
             .arg(&page)
-            .assert_logged()
-            .success();
-        let h = png_height(&out);
-        eprintln!("VARIANT {name}: png height {h}");
-        if h > 900 {
+            .env("DOTEML_DEBUG", "1")
+            .timeout(Duration::from_secs(120));
+        cmd.assert_logged().success();
+        let px = png_pixels(&out);
+        let red = has_red(&px, 150, px.1);
+        eprintln!("VARIANT {name}: png height {} red-in-frame {red}", px.1);
+        if red {
             worked.push(*name);
         }
     }
