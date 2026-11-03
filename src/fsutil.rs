@@ -52,11 +52,10 @@ pub fn write_output(path: &Path, data: &[u8]) -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 
-    #[cfg(unix)]
     #[test]
     fn tempdir_and_file_are_private() {
         use std::os::unix::fs::PermissionsExt;
@@ -73,7 +72,6 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
     #[test]
     fn output_refuses_symlink() {
         let dir = tempfile::tempdir().unwrap();
