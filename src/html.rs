@@ -50,7 +50,9 @@ return Math.ceil(Math.max(document.documentElement.scrollHeight,document.body?do
 pub const FRAME_STATE_SCRIPT: &str = "\
 (function(){var f=document.getElementById('doteml-body');if(!f)return 'noframe';\
 try{var d=f.contentDocument;if(!d)return 'nodoc';\
-return d.readyState+':'+(d.body?d.body.childNodes.length:-1)}catch(e){return 'err:'+e}})()";
+var href='';try{href=f.contentWindow.location.href}catch(e){href='?'}\
+return d.readyState+':'+(d.body?d.body.childNodes.length:-1)+':'+href+':srcdoc='+\
+(f.getAttribute('srcdoc')||'').length+':top='+document.location.href}catch(e){return 'err:'+e}})()";
 
 static CID_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"(?i)(["'(\s=])cid:([^"'\s)>]+)"#).unwrap());

@@ -291,9 +291,14 @@ impl WebKitBackend {
         self.delegate.reset();
         trace("load: start");
         self.resize(INITIAL_HEIGHT);
+        // DOTEML_WEBKIT_BASE_URL is a diagnostic knob: WebKit treats documents with a
+        // real base origin differently from opaque about:blank ones.
+        let base = std::env::var("DOTEML_WEBKIT_BASE_URL")
+            .ok()
+            .and_then(|u| NSURL::URLWithString(&NSString::from_str(&u)));
         unsafe {
             self.webview
-                .loadHTMLString_baseURL(&NSString::from_str(html), None)
+                .loadHTMLString_baseURL(&NSString::from_str(html), base.as_deref())
         };
         // Render whatever loaded on timeout, like the Chrome backend.
         let state = self.delegate.ivars();
@@ -363,10 +368,12 @@ impl WebKitBackend {
         loop {
             let state = self.eval_string(FRAME_STATE_SCRIPT).unwrap_or_default();
             trace(&format!("frame state {state}"));
-            let ready = state
-                .strip_prefix("complete:")
-                .and_then(|n| n.parse::<i64>().ok())
-                .is_some_and(|n| n >= 1);
+            let mut parts = state.split(':');
+            let ready = parts.next() == Some("complete")
+                && parts
+                    .next()
+                    .and_then(|n| n.parse::<i64>().ok())
+                    .is_some_and(|n| n >= 1);
             if ready || Instant::now() >= deadline {
                 return;
             }

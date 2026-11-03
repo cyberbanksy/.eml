@@ -230,14 +230,43 @@ fn webkit_frame_variants() {
         let e = base[s..].find("</script>").unwrap() + s + "</script>".len();
         base[..s].to_string() + &base[e..]
     };
+    // Alternative embeddings: the body as a data: URL frame, and as an <object>.
+    use base64::Engine;
+    let body_doc = doteml::html::body_document(&eml);
+    let data_url = format!(
+        "data:text/html;charset=utf-8;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&body_doc)
+    );
+    let srcdoc_start = base.find(" srcdoc=\"").unwrap();
+    let srcdoc_end = base[srcdoc_start + 9..].find('"').unwrap() + srcdoc_start + 9 + 1;
+    let data_src = format!(
+        "{} src=\"{}\"{}",
+        &base[..srcdoc_start],
+        data_url,
+        &base[srcdoc_end..]
+    )
+    .replacen("frame-src about:;", "frame-src about: data:;", 1);
+    let iframe_start = base.find("<iframe id=\"doteml-body\"").unwrap();
+    let iframe_end = base[iframe_start..].find("</iframe>").unwrap() + iframe_start + 9;
+    let object = format!(
+        "{}<object id=\"doteml-body\" type=\"text/html\" data=\"{}\" style=\"display:block;width:100%;height:900px\"></object>{}",
+        &base[..iframe_start],
+        data_url,
+        &base[iframe_end..]
+    )
+    .replacen("frame-src about:;", "frame-src about: data:; object-src data:;", 1);
     let variants = [
         ("baseline", base.clone()),
-        ("no-csp", no_csp),
+        ("no-csp-no-sandbox", no_csp_no_sandbox),
         ("csp-self", self_csp),
         ("no-sandbox", no_sandbox),
-        ("no-csp-no-sandbox", no_csp_no_sandbox),
         ("child-src", child_src),
         ("no-script", no_script),
+        ("no-csp", no_csp),
+        ("data-src", data_src),
+        ("object-data", object),
+        ("base-https", base.clone()),
+        ("base-file", base.clone()),
     ];
     let d = tempfile::tempdir().unwrap();
     let mut worked = Vec::new();
@@ -251,6 +280,18 @@ fn webkit_frame_variants() {
             .arg(&page)
             .env("DOTEML_DEBUG", "1")
             .timeout(Duration::from_secs(120));
+        match *name {
+            "base-https" => {
+                cmd.env("DOTEML_WEBKIT_BASE_URL", "https://doteml.invalid/");
+            }
+            "base-file" => {
+                cmd.env(
+                    "DOTEML_WEBKIT_BASE_URL",
+                    format!("file://{}/", d.path().display()),
+                );
+            }
+            _ => {}
+        }
         cmd.assert_logged().success();
         let px = png_pixels(&out);
         let red = has_red(&px, 150, px.1);
