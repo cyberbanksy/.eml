@@ -9,6 +9,12 @@ cargo-dist-version = "0.32.0"
 ci = "github"
 # The installers to generate for each app
 installers = ["shell", "powershell", "homebrew", "msi"]
+# The Homebrew formula lives in this repo (Formula/doteml.rb)
+tap = "cyberbanksy/.eml"
+# Publish jobs to run in CI
+publish-jobs = ["homebrew"]
+# release.yml is hand-adjusted for a same-repo tap (checkout ref + token); see CONTRIBUTING.md
+allow-dirty = ["ci"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
 # Path that installers should place binaries in

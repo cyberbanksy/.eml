@@ -28,7 +28,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cyberbanksy/.eml/releas
 **Homebrew**
 
 ```bash
-brew install cyberbanksy/tap/doteml
+brew tap cyberbanksy/eml https://github.com/cyberbanksy/.eml && brew install doteml
 ```
 
 **Windows** — download the MSI from the [latest release](https://github.com/cyberbanksy/.eml/releases/latest), or:

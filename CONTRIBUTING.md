@@ -36,3 +36,12 @@ cargo clippy --all-targets -- -D warnings
 - One feature or fix per PR
 - Add tests for new functionality
 - Keep commits short and imperative ("Add PNG output", not "Added PNG output support")
+
+## Releases
+
+Tag `vX.Y.Z` (matching `Cargo.toml`) and push the tag; cargo-dist builds the archives,
+installers and the MSI, creates the GitHub Release, and commits `Formula/doteml.rb` to
+`main` so `brew tap cyberbanksy/eml https://github.com/cyberbanksy/.eml` works. The
+`publish-homebrew-formula` job in `.github/workflows/release.yml` is hand-adjusted for
+that same-repo tap (`ref: main`, `GITHUB_TOKEN`); re-apply those two lines if you ever
+run `dist generate` again.
