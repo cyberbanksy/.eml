@@ -137,11 +137,9 @@ define_class!(
                 .unwrap_or_default();
             // Empty/about: covers the body frame's internal srcdoc navigation; data: is
             // inert; file: only for our own staged document; anything else is cancelled.
-            let base = std::env::var("DOTEML_WEBKIT_BASE_URL").unwrap_or_default();
             let allow = url.is_empty()
                 || url.starts_with("about:")
                 || url.starts_with("data:")
-                || (!base.is_empty() && url == base)
                 || (url.starts_with("file://")
                     && url.split('#').next().is_some_and(|u| u.ends_with(DOC_NAME)));
             trace(&format!(
@@ -240,13 +238,10 @@ impl WebKitBackend {
         let config = unsafe { WKWebViewConfiguration::new(mtm) };
         unsafe {
             config.setWebsiteDataStore(&WKWebsiteDataStore::nonPersistentDataStore(mtm));
-            // Disables the page's own scripts; our evaluateJavaScript height probe still runs.
-            // DOTEML_WEBKIT_ALLOW_JS is a diagnostic knob only.
-            if std::env::var_os("DOTEML_WEBKIT_ALLOW_JS").is_none() {
-                config
-                    .defaultWebpagePreferences()
-                    .setAllowsContentJavaScript(false);
-            }
+            // Scripting stays enabled on purpose: WebKit's parser drops the `srcdoc`
+            // attribute when content JavaScript is off, which would blank the body frame.
+            // The email's scripts are blocked by the frame's sandbox (no allow-scripts)
+            // and by the page's CSP, which only admits doteml's own nonced script.
         }
 
         let rule_store_dir = private_tempdir("doteml-rules-")?;
@@ -298,14 +293,9 @@ impl WebKitBackend {
         self.delegate.reset();
         trace("load: start");
         self.resize(INITIAL_HEIGHT);
-        // DOTEML_WEBKIT_BASE_URL is a diagnostic knob: WebKit treats documents with a
-        // real base origin differently from opaque about:blank ones.
-        let base = std::env::var("DOTEML_WEBKIT_BASE_URL")
-            .ok()
-            .and_then(|u| NSURL::URLWithString(&NSString::from_str(&u)));
         unsafe {
             self.webview
-                .loadHTMLString_baseURL(&NSString::from_str(html), base.as_deref())
+                .loadHTMLString_baseURL(&NSString::from_str(html), None)
         };
         // Render whatever loaded on timeout, like the Chrome backend.
         let state = self.delegate.ivars();
