@@ -385,17 +385,16 @@ mod tests {
         let real = cellar.join("doteml");
         std::fs::write(&real, "").unwrap();
         std::fs::create_dir_all(dir.path().join("bin")).unwrap();
-        let link = dir.path().join("bin/doteml");
+        // Symlink resolution is the mechanism; Homebrew only exists on Unix.
         #[cfg(unix)]
-        std::os::unix::fs::symlink(&real, &link).unwrap();
-        #[cfg(not(unix))]
-        std::fs::copy(&real, &link).unwrap();
-
-        // On PATH and the same file: use the PATH entry.
-        assert_eq!(stable_exe_path(&real, |_| Some(link.clone())), link);
-        // Not on PATH but under Cellar: rewrite to <prefix>/bin.
-        #[cfg(unix)]
-        assert_eq!(stable_exe_path(&real, |_| None), link);
+        {
+            let link = dir.path().join("bin/doteml");
+            std::os::unix::fs::symlink(&real, &link).unwrap();
+            // On PATH and the same file: use the PATH entry.
+            assert_eq!(stable_exe_path(&real, |_| Some(link.clone())), link);
+            // Not on PATH but under Cellar: rewrite to <prefix>/bin.
+            assert_eq!(stable_exe_path(&real, |_| None), link);
+        }
         // Unrelated binary on PATH: keep the real path.
         let other = dir.path().join("other");
         std::fs::write(&other, "").unwrap();
