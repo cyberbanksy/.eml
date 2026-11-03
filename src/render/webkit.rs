@@ -135,9 +135,13 @@ define_class!(
                 .and_then(|u| u.absoluteString())
                 .map(|s| s.to_string())
                 .unwrap_or_default();
-            // Empty/about: covers the body frame's internal srcdoc navigation.
+            // Empty/about: covers the body frame's internal srcdoc navigation; data: is
+            // inert; file: only for our own staged document; anything else is cancelled.
+            let base = std::env::var("DOTEML_WEBKIT_BASE_URL").unwrap_or_default();
             let allow = url.is_empty()
                 || url.starts_with("about:")
+                || url.starts_with("data:")
+                || (!base.is_empty() && url == base)
                 || (url.starts_with("file://")
                     && url.split('#').next().is_some_and(|u| u.ends_with(DOC_NAME)));
             trace(&format!(
@@ -237,9 +241,12 @@ impl WebKitBackend {
         unsafe {
             config.setWebsiteDataStore(&WKWebsiteDataStore::nonPersistentDataStore(mtm));
             // Disables the page's own scripts; our evaluateJavaScript height probe still runs.
-            config
-                .defaultWebpagePreferences()
-                .setAllowsContentJavaScript(false);
+            // DOTEML_WEBKIT_ALLOW_JS is a diagnostic knob only.
+            if std::env::var_os("DOTEML_WEBKIT_ALLOW_JS").is_none() {
+                config
+                    .defaultWebpagePreferences()
+                    .setAllowsContentJavaScript(false);
+            }
         }
 
         let rule_store_dir = private_tempdir("doteml-rules-")?;

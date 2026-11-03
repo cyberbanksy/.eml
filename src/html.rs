@@ -52,7 +52,8 @@ pub const FRAME_STATE_SCRIPT: &str = "\
 try{var d=f.contentDocument;if(!d)return 'nodoc';\
 var href='';try{href=f.contentWindow.location.href}catch(e){href='?'}\
 return d.readyState+':'+(d.body?d.body.childNodes.length:-1)+':'+href+':srcdoc='+\
-(f.getAttribute('srcdoc')||'').length+':top='+document.location.href}catch(e){return 'err:'+e}})()";
+(f.getAttribute('srcdoc')||'').length+':attrs='+f.attributes.length+':top='+document.location.href+\
+':doclen='+document.documentElement.outerHTML.length+':outer='+f.outerHTML.slice(0,160)}catch(e){return 'err:'+e}})()";
 
 static CID_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"(?i)(["'(\s=])cid:([^"'\s)>]+)"#).unwrap());

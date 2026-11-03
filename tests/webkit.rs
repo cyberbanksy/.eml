@@ -255,14 +255,23 @@ fn webkit_frame_variants() {
         &base[iframe_end..]
     )
     .replacen("frame-src about:;", "frame-src about: data:; object-src data:;", 1);
+    let minimal = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body>\
+<p>header</p><iframe id=\"doteml-body\" srcdoc=\"&lt;div style=&quot;height:800px;background:#ff0000&quot;&gt;x&lt;/div&gt;\" \
+style=\"display:block;width:100%;height:900px;border:0\"></iframe></body></html>"
+        .to_string();
+    let minimal_unescaped = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body>\
+<p>header</p><iframe id=\"doteml-body\" srcdoc='<div style=\"height:800px;background:#ff0000\">x</div>' \
+style=\"display:block;width:100%;height:900px;border:0\"></iframe></body></html>"
+        .to_string();
+    let _ = (self_csp, child_src, no_script, no_csp);
     let variants = [
         ("baseline", base.clone()),
+        ("minimal", minimal.clone()),
+        ("minimal-unescaped", minimal_unescaped),
+        ("js-on", base.clone()),
+        ("js-on-minimal", minimal),
         ("no-csp-no-sandbox", no_csp_no_sandbox),
-        ("csp-self", self_csp),
         ("no-sandbox", no_sandbox),
-        ("child-src", child_src),
-        ("no-script", no_script),
-        ("no-csp", no_csp),
         ("data-src", data_src),
         ("object-data", object),
         ("base-https", base.clone()),
@@ -281,6 +290,9 @@ fn webkit_frame_variants() {
             .env("DOTEML_DEBUG", "1")
             .timeout(Duration::from_secs(120));
         match *name {
+            "js-on" | "js-on-minimal" => {
+                cmd.env("DOTEML_WEBKIT_ALLOW_JS", "1");
+            }
             "base-https" => {
                 cmd.env("DOTEML_WEBKIT_BASE_URL", "https://doteml.invalid/");
             }
