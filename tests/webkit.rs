@@ -192,3 +192,62 @@ fn webkit_body_cannot_overpaint_header() {
     assert!(!has_red(&pb, 0, header_rows));
     assert!(has_red(&pb, header_rows, pb.1));
 }
+
+/// Diagnostic: which page variants load the body frame under WebKit. Prints a table
+/// to the CI log and fails only if none of them work.
+#[test]
+fn webkit_frame_variants() {
+    use doteml::html::build_html;
+    let eml = doteml::ParsedEmail {
+        subject: "Variants".into(),
+        html_body: "<div style=\"height:800px;background:#ff0000\">body</div>".into(),
+        ..Default::default()
+    };
+    let base = build_html(&eml, false);
+    let csp_start = base
+        .find("<meta http-equiv=\"Content-Security-Policy\"")
+        .unwrap();
+    let csp_end = base[csp_start..].find('>').unwrap() + csp_start + 1;
+    let csp_meta = &base[csp_start..csp_end];
+    let no_csp = base.replacen(csp_meta, "", 1);
+    let self_csp = base.replacen(
+        "frame-src about:;",
+        "frame-src 'self' about: data: blob:;",
+        1,
+    );
+    let no_sandbox = base.replacen(" sandbox=\"allow-same-origin\"", "", 1);
+    let no_csp_no_sandbox = no_csp.replacen(" sandbox=\"allow-same-origin\"", "", 1);
+    let child_src = base.replacen(
+        "frame-src about:;",
+        "frame-src about:; child-src about:;",
+        1,
+    );
+    let variants = [
+        ("baseline", base.clone()),
+        ("no-csp", no_csp),
+        ("csp-self", self_csp),
+        ("no-sandbox", no_sandbox),
+        ("no-csp-no-sandbox", no_csp_no_sandbox),
+        ("child-src", child_src),
+    ];
+    let d = tempfile::tempdir().unwrap();
+    let mut worked = Vec::new();
+    for (name, html) in &variants {
+        let page = d.path().join(format!("{name}.html"));
+        std::fs::write(&page, html).unwrap();
+        let out = d.path().join(format!("{name}.png"));
+        webkit()
+            .args(["render-html", "-f", "png", "-o"])
+            .arg(&out)
+            .arg(&page)
+            .assert_logged()
+            .success();
+        let h = png_height(&out);
+        eprintln!("VARIANT {name}: png height {h}");
+        if h > 900 {
+            worked.push(*name);
+        }
+    }
+    eprintln!("VARIANTS THAT LOADED THE FRAME: {worked:?}");
+    assert!(!worked.is_empty(), "no variant loaded the body frame");
+}
