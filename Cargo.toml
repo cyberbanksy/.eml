@@ -43,6 +43,7 @@ libc = "0.2"
 
 [dev-dependencies]
 assert_cmd = "2"
+png = "0.18.1"
 predicates = "3"
 tiny_http = "0.12"
 

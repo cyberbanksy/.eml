@@ -1,6 +1,7 @@
 //! macOS backend: renders with the system WebKit, so no Chrome is needed.
 
 use std::cell::{Cell, RefCell};
+use std::ffi::c_void;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -25,6 +26,8 @@ use objc2_web_kit::{
 
 use super::{Backend, BackendInfo, RenderFormat, RenderOptions};
 use crate::error::{Error, Result};
+use crate::fsutil::{private_tempdir, write_output};
+use crate::html::{FRAME_STATE_SCRIPT, RESIZE_SCRIPT};
 
 const WIDTH: f64 = 800.0;
 const INITIAL_HEIGHT: f64 = 600.0;
@@ -46,6 +49,27 @@ fn trace(stage: &str) {
     if std::env::var_os("DOTEML_DEBUG").is_some() {
         eprintln!("[webkit] {stage}");
     }
+}
+
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGSessionCopyCurrentDictionary() -> *const c_void;
+}
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
+    fn CFRelease(cf: *const c_void);
+}
+
+/// WebKit needs a window-server session; over SSH or from launchd there is none and
+/// AppKit would hang or abort instead of returning an error.
+fn has_gui_session() -> bool {
+    // SAFETY: plain C calls; the dictionary is released right away.
+    let dict = unsafe { CGSessionCopyCurrentDictionary() };
+    if dict.is_null() {
+        return false;
+    }
+    unsafe { CFRelease(dict) };
+    true
 }
 
 fn backend_err(msg: impl Into<String>) -> Error {
@@ -111,9 +135,17 @@ define_class!(
                 .and_then(|u| u.absoluteString())
                 .map(|s| s.to_string())
                 .unwrap_or_default();
-            let allow = url.starts_with("about:")
+            // Empty/about: covers the body frame's internal srcdoc navigation; data: is
+            // inert; file: only for our own staged document; anything else is cancelled.
+            let allow = url.is_empty()
+                || url.starts_with("about:")
+                || url.starts_with("data:")
                 || (url.starts_with("file://")
                     && url.split('#').next().is_some_and(|u| u.ends_with(DOC_NAME)));
+            trace(&format!(
+                "navigation {} {url:?}",
+                if allow { "allow" } else { "cancel" }
+            ));
             handler.call((if allow {
                 WKNavigationActionPolicy::Allow
             } else {
@@ -190,6 +222,12 @@ impl WebKitBackend {
         let mtm = MainThreadMarker::new()
             .ok_or_else(|| backend_err("the webkit backend must be used from the main thread"))?;
         trace("main thread ok");
+        if !has_gui_session() {
+            return Err(backend_err(
+                "no graphical session (SSH or background process); use --backend chrome",
+            ));
+        }
+        trace("gui session ok");
 
         // WebKit needs AppKit initialised, but a CLI must not show a Dock icon or steal focus.
         let app = NSApplication::sharedApplication(mtm);
@@ -200,13 +238,13 @@ impl WebKitBackend {
         let config = unsafe { WKWebViewConfiguration::new(mtm) };
         unsafe {
             config.setWebsiteDataStore(&WKWebsiteDataStore::nonPersistentDataStore(mtm));
-            // Disables the page's own scripts; our evaluateJavaScript height probe still runs.
-            config
-                .defaultWebpagePreferences()
-                .setAllowsContentJavaScript(false);
+            // Scripting stays enabled on purpose: WebKit's parser drops the `srcdoc`
+            // attribute when content JavaScript is off, which would blank the body frame.
+            // The email's scripts are blocked by the frame's sandbox (no allow-scripts)
+            // and by the page's CSP, which only admits doteml's own nonced script.
         }
 
-        let rule_store_dir = tempfile::Builder::new().prefix("doteml-rules-").tempdir()?;
+        let rule_store_dir = private_tempdir("doteml-rules-")?;
         let rules = compile_rules(mtm, rule_store_dir.path(), opts.allow_remote, opts.timeout)?;
         trace("content rules compiled");
         unsafe { config.userContentController().addContentRuleList(&rules) };
@@ -249,17 +287,15 @@ impl WebKitBackend {
         })
     }
 
-    fn load(&self, doc: &Path, dir: &Path) -> Result<()> {
+    /// Load the page from memory. A page loaded from a file:// URL through WebKit's
+    /// restricted file access never renders its srcdoc body frame, so no file is staged.
+    fn load(&self, html: &str) -> Result<()> {
         self.delegate.reset();
         trace("load: start");
-        let doc_url =
-            NSURL::fileURLWithPath_isDirectory(&NSString::from_str(&doc.to_string_lossy()), false);
-        let dir_url =
-            NSURL::fileURLWithPath_isDirectory(&NSString::from_str(&dir.to_string_lossy()), true);
         self.resize(INITIAL_HEIGHT);
         unsafe {
             self.webview
-                .loadFileURL_allowingReadAccessToURL(&doc_url, &dir_url)
+                .loadHTMLString_baseURL(&NSString::from_str(html), None)
         };
         // Render whatever loaded on timeout, like the Chrome backend.
         let state = self.delegate.ivars();
@@ -278,7 +314,8 @@ impl WebKitBackend {
         self.window.setContentSize(NSSize::new(WIDTH, height));
     }
 
-    /// Full document height in CSS pixels (page JS is off; this injected probe still runs).
+    /// Fits the body frame to its content and returns the full document height in CSS
+    /// pixels (page JS is off; this injected probe still runs).
     fn content_height(&self) -> f64 {
         let result: Rc<Cell<Option<f64>>> = Rc::new(Cell::new(None));
         let done = Rc::new(Cell::new(false));
@@ -290,16 +327,55 @@ impl WebKitBackend {
             }
             d.set(true);
         });
-        let script = NSString::from_str(
-            "Math.ceil(Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0))",
-        );
+        let script = NSString::from_str(RESIZE_SCRIPT);
         unsafe {
             self.webview
                 .evaluateJavaScript_completionHandler(&script, Some(&block))
         };
         pump_until(|| done.get(), Duration::from_secs(5));
-        trace("height probe returned");
+        trace(&format!("height probe returned {:?}", result.get()));
         result.get().filter(|h| *h >= 1.0).unwrap_or(INITIAL_HEIGHT)
+    }
+
+    /// Evaluate a script that returns a string (page JS is off; injected scripts still run).
+    fn eval_string(&self, script: &str) -> Option<String> {
+        let result: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+        let done = Rc::new(Cell::new(false));
+        let (r, d) = (result.clone(), done.clone());
+        let block = RcBlock::new(move |value: *mut AnyObject, err: *mut NSError| {
+            // SAFETY: null or a valid object for the duration of the callback.
+            match unsafe { value.as_ref() }.and_then(|v| v.downcast_ref::<NSString>()) {
+                Some(s) => *r.borrow_mut() = Some(s.to_string()),
+                None => *r.borrow_mut() = Some(format!("error: {}", ns_error(err))),
+            }
+            d.set(true);
+        });
+        unsafe {
+            self.webview
+                .evaluateJavaScript_completionHandler(&NSString::from_str(script), Some(&block))
+        };
+        pump_until(|| done.get(), Duration::from_secs(5));
+        result.borrow().clone()
+    }
+
+    /// The main frame's load event can fire before the srcdoc body frame has laid out;
+    /// wait until the frame reports a complete document with content.
+    fn wait_for_frame(&self) {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            let state = self.eval_string(FRAME_STATE_SCRIPT).unwrap_or_default();
+            trace(&format!("frame state {state}"));
+            let mut parts = state.split(':');
+            let ready = parts.next() == Some("complete")
+                && parts
+                    .next()
+                    .and_then(|n| n.parse::<i64>().ok())
+                    .is_some_and(|n| n >= 1);
+            if ready || Instant::now() >= deadline {
+                return;
+            }
+            pump_until(|| false, Duration::from_millis(50));
+        }
     }
 
     fn snapshot(&self, height: f64, fmt: RenderFormat, quality: u8) -> Result<Vec<u8>> {
@@ -422,11 +498,9 @@ impl Backend for WebKitBackend {
     }
 
     fn render(&mut self, html: &str, output: &Path, fmt: RenderFormat, quality: u8) -> Result<()> {
-        let dir = tempfile::Builder::new().prefix("doteml-").tempdir()?;
-        let doc = dir.path().join(DOC_NAME);
-        std::fs::write(&doc, html)?;
-        self.load(&doc, dir.path())?;
+        self.load(html)?;
 
+        self.wait_for_frame();
         let height = self.content_height();
         self.resize(height);
         pump_until(|| false, Duration::from_millis(100)); // let layout settle at the new size
@@ -434,12 +508,12 @@ impl Backend for WebKitBackend {
         let result = match fmt {
             RenderFormat::Png | RenderFormat::Jpg => self
                 .snapshot(height, fmt, quality)
-                .and_then(|bytes| Ok(std::fs::write(output, bytes)?)),
+                .and_then(|bytes| write_output(output, &bytes)),
             // A single page as tall as the email. AppKit's paginated print path
             // (NSPrintOperation) blocks forever in a CLI, so it is not used.
             RenderFormat::Pdf => self
                 .create_pdf(height)
-                .and_then(|bytes| Ok(std::fs::write(output, bytes)?)),
+                .and_then(|bytes| write_output(output, &bytes)),
         };
         // Release the document before the staging directory goes away.
         unsafe {

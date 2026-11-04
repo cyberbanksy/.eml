@@ -1,0 +1,3 @@
+[env]
+# WKPDFConfiguration/createPDF need macOS 11.
+MACOSX_DEPLOYMENT_TARGET = "11.0"

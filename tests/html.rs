@@ -54,11 +54,12 @@ fn cc_row_absent() {
 
 #[test]
 fn body_included() {
-    let h = html(&ParsedEmail {
+    let e = ParsedEmail {
         html_body: "<p>Hello world</p>".into(),
         ..Default::default()
-    });
-    assert!(h.contains("<p>Hello world</p>"));
+    };
+    assert!(doteml::html::body_document(&e).contains("<p>Hello world</p>"));
+    assert!(html(&e).contains("&lt;p&gt;Hello world&lt;/p&gt;"));
 }
 
 #[test]
@@ -81,7 +82,7 @@ fn cid_exact_match() {
         ],
         ..Default::default()
     };
-    let h = html(&e);
+    let h = doteml::html::body_document(&e);
     assert!(h.contains(r#"src="data:image/png;base64,QQ==""#));
     assert!(h.contains(r#"src="data:image/png;base64,Qg==""#));
     assert!(!h.to_lowercase().contains("cid:"));
@@ -120,4 +121,66 @@ fn metadata_rows() {
     assert!(h.contains("&lt;id@example.com&gt;"));
     assert!(h.contains("r@example.com"));
     assert!(h.contains("doc.pdf (5 bytes)"));
+}
+
+#[test]
+fn content_type_injection_is_escaped() {
+    let e = ParsedEmail {
+        html_body: r#"<img src="cid:a">"#.into(),
+        attachments: vec![Attachment {
+            filename: "a.png".into(),
+            content_type: r#"image/png" onerror="x" data-z="#.into(),
+            data: b"A".to_vec(),
+            content_id: Some("a".into()),
+        }],
+        ..Default::default()
+    };
+    let h = doteml::html::body_document(&e);
+    assert!(!h.contains(r#"" onerror="#), "{h}");
+    assert!(
+        h.contains("data:application/octet-stream;base64,QQ=="),
+        "{h}"
+    );
+}
+
+#[test]
+fn bidi_controls_stripped_from_headers() {
+    let e = ParsedEmail {
+        from: "bank\u{202E}moc.live <a@b>".into(),
+        ..Default::default()
+    };
+    let h = html(&e);
+    assert!(!h.contains('\u{202E}'));
+    assert!(h.contains("bankmoc.live"));
+}
+
+#[test]
+fn huge_inline_image_not_embedded() {
+    let e = ParsedEmail {
+        html_body: r#"<img src="cid:big">"#.into(),
+        attachments: vec![Attachment {
+            filename: "big.png".into(),
+            content_type: "image/png".into(),
+            data: vec![0; doteml::html::MAX_INLINE_IMAGE_BYTES + 1],
+            content_id: Some("big".into()),
+        }],
+        ..Default::default()
+    };
+    let h = doteml::html::body_document(&e);
+    assert!(h.contains("cid:big"));
+    assert!(h.len() < 1000);
+}
+
+#[test]
+fn body_is_isolated_in_a_frame() {
+    let e = ParsedEmail {
+        html_body: "<p>hi</p><style>#doteml-hdr{display:none}</style>".into(),
+        ..Default::default()
+    };
+    let h = html(&e);
+    assert!(h.contains(r#"<iframe id="doteml-body""#));
+    assert!(h.contains(r#"sandbox="allow-same-origin""#));
+    // The message's own CSS lives inside the escaped srcdoc, not in the page.
+    assert!(!h.contains("<style>#doteml-hdr{display:none}</style>"));
+    assert!(h.contains("&lt;style&gt;#doteml-hdr{display:none}&lt;/style&gt;"));
 }

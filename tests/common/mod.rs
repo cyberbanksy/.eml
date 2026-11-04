@@ -108,3 +108,43 @@ pub fn pdf_info(path: &Path) -> std::collections::BTreeMap<String, String> {
         })
         .collect()
 }
+
+/// Decoded RGBA pixels of a PNG: (width, height, bytes).
+pub fn png_pixels(path: &Path) -> (u32, u32, Vec<u8>) {
+    let decoder = png::Decoder::new(std::io::BufReader::new(std::fs::File::open(path).unwrap()));
+    let mut reader = decoder.read_info().unwrap();
+    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+    let info = reader.next_frame(&mut buf).unwrap();
+    let bytes = &buf[..info.buffer_size()];
+    let rgba = match info.color_type {
+        png::ColorType::Rgba => bytes.to_vec(),
+        png::ColorType::Rgb => bytes
+            .chunks(3)
+            .flat_map(|p| [p[0], p[1], p[2], 255])
+            .collect(),
+        other => panic!("unexpected PNG color type {other:?}"),
+    };
+    (info.width, info.height, rgba)
+}
+
+/// PNG height from the IHDR chunk, without decoding.
+pub fn png_height(path: &Path) -> u32 {
+    let b = std::fs::read(path).unwrap();
+    u32::from_be_bytes([b[20], b[21], b[22], b[23]])
+}
+
+/// Does any pixel in rows `from..to` look pure red?
+pub fn has_red(px: &(u32, u32, Vec<u8>), from: u32, to: u32) -> bool {
+    let (w, h, data) = px;
+    (from..to.min(*h)).any(|y| {
+        (0..*w).any(|x| {
+            let i = ((y * w + x) * 4) as usize;
+            data[i] > 200 && data[i + 1] < 60 && data[i + 2] < 60
+        })
+    })
+}
+
+/// A body that tries to paint a fake From line over doteml's header.
+pub const OVERLAY_ATTACK: &str = r#"<style>#doteml-hdr{display:none}html,body{margin-top:-600px}</style>
+<div style="position:fixed;top:0;left:0;width:100%;height:600px;background:#ff0000;z-index:2147483647">
+From attacker@evil.com (SPOOFED)</div><p>real body</p>"#;

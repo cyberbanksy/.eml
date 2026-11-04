@@ -5,6 +5,7 @@ pub mod cdp;
 pub mod cli;
 pub mod convert;
 pub mod error;
+pub mod fsutil;
 pub mod html;
 pub mod integrations;
 pub mod parser;

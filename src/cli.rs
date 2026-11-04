@@ -68,16 +68,28 @@ pub enum Cmd {
         #[arg(long)]
         json: bool,
     },
+    /// Render a raw HTML file through the same pipeline (development aid)
+    #[command(hide = true)]
+    RenderHtml {
+        file: PathBuf,
+        #[arg(short, long)]
+        output: PathBuf,
+        #[arg(short, long, value_enum, default_value_t = Format::Png)]
+        format: Format,
+        #[arg(long, value_enum, default_value_t = BackendChoice::Auto, env = "DOTEML_BACKEND")]
+        backend: BackendChoice,
+    },
     /// Add a right-click "Convert EML to PDF" action to your OS
     Install,
     /// Remove the right-click action
     Uninstall,
 }
 
-const SUBCOMMANDS: [&str; 6] = [
+const SUBCOMMANDS: [&str; 7] = [
     "convert",
     "doctor",
     "verify",
+    "render-html",
     "install",
     "uninstall",
     "help",
@@ -129,6 +141,12 @@ pub fn run(cli: Cli) -> ExitCode {
             extract,
             json,
         } => run_verify(&pdfs, extract.as_deref(), json),
+        Cmd::RenderHtml {
+            file,
+            output,
+            format,
+            backend,
+        } => run_render_html(&file, &output, format, backend),
         Cmd::Install => run_install(),
         Cmd::Uninstall => run_uninstall(),
     }
@@ -177,6 +195,38 @@ pub fn run_convert(format: Format, c: CommonOpts) -> ExitCode {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
+    }
+}
+
+fn run_render_html(file: &Path, output: &Path, format: Format, backend: BackendChoice) -> ExitCode {
+    use crate::render::RenderFormat;
+    let fmt = match format {
+        Format::Pdf => RenderFormat::Pdf,
+        Format::Png => RenderFormat::Png,
+        Format::Jpg => RenderFormat::Jpg,
+        Format::Html => {
+            eprintln!("Error: render-html needs -f pdf, png, or jpg");
+            return ExitCode::from(2);
+        }
+    };
+    let result = std::fs::read_to_string(file)
+        .map_err(crate::Error::from)
+        .and_then(|html| {
+            let mut r = Renderer::new(RenderOptions {
+                backend,
+                ..Default::default()
+            })?;
+            r.render(&html, output, fmt, 85)
+        });
+    match result {
+        Ok(()) => {
+            println!("{} -> {}", file.display(), output.display());
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("Error: {e}");
+            ExitCode::FAILURE
+        }
     }
 }
 

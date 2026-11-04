@@ -112,6 +112,18 @@ fn legoland_to_png() {
     let out = d.path().join("legoland.png");
     convert(&legoland(), Some(&out), &opts(Format::Png), None).unwrap();
     assert!(std::fs::metadata(&out).unwrap().len() > 1000);
+    // The body frame must be sized to its content, not left at the placeholder height.
+    assert!(png_height(&out) > 1000, "png height {}", png_height(&out));
+}
+
+#[test]
+fn legoland_pdf_has_all_text() {
+    let d = tempfile::tempdir().unwrap();
+    let out = d.path().join("legoland.pdf");
+    convert(&legoland(), Some(&out), &opts(Format::Pdf), None).unwrap();
+    assert!(lopdf::Document::load(&out).unwrap().get_pages().len() >= 2);
+    let text = pdf_text(&out);
+    assert!(text.contains("Unsubscribe"), "last line missing: {text}");
 }
 
 #[test]

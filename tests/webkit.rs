@@ -15,8 +15,25 @@ use predicates::str::contains;
 fn webkit() -> Command {
     let mut cmd = Command::cargo_bin("doteml").unwrap();
     cmd.args(["--backend", "webkit"])
+        .env("DOTEML_DEBUG", "1")
         .timeout(Duration::from_secs(120));
     cmd
+}
+
+/// Like `assert()`, but echo the binary's stderr so WebKit stage traces show in CI logs.
+trait AssertLogged {
+    fn assert_logged(self) -> assert_cmd::assert::Assert;
+}
+
+impl AssertLogged for &mut Command {
+    fn assert_logged(self) -> assert_cmd::assert::Assert {
+        let a = self.assert();
+        eprintln!(
+            "--- stderr ---\n{}",
+            String::from_utf8_lossy(&a.get_output().stderr)
+        );
+        a
+    }
 }
 
 struct Tracker {
@@ -58,7 +75,7 @@ fn webkit_legoland_pdf() {
         .arg(legoland())
         .arg("-o")
         .arg(&out)
-        .assert()
+        .assert_logged()
         .success();
     let bytes = std::fs::read(&out).unwrap();
     assert!(bytes.starts_with(b"%PDF-"));
@@ -76,11 +93,12 @@ fn webkit_legoland_png() {
         .arg(legoland())
         .args(["-f", "png", "-o"])
         .arg(&out)
-        .assert()
+        .assert_logged()
         .success();
     let bytes = std::fs::read(&out).unwrap();
     assert!(bytes.starts_with(b"\x89PNG"));
     assert!(bytes.len() > 1000, "{} bytes", bytes.len());
+    assert!(png_height(&out) > 1000, "png height {}", png_height(&out));
 }
 
 #[test]
@@ -91,7 +109,7 @@ fn webkit_simple_jpg() {
         .arg(&p)
         .args(["-f", "jpg", "-o"])
         .arg(&out)
-        .assert()
+        .assert_logged()
         .success();
     assert!(std::fs::read(&out).unwrap().starts_with(&[0xFF, 0xD8]));
 }
@@ -116,7 +134,7 @@ fn webkit_blocks_remote_by_default() {
         .arg(&p)
         .args(["-f", "png", "-o"])
         .arg(d.path().join("o.png"))
-        .assert()
+        .assert_logged()
         .success();
     assert!(t.hits.lock().unwrap().is_empty());
 }
@@ -129,7 +147,7 @@ fn webkit_remote_opt_in() {
         .arg(&p)
         .args(["-f", "png", "--remote-images", "-o"])
         .arg(d.path().join("o.png"))
-        .assert()
+        .assert_logged()
         .success();
     assert_eq!(*t.hits.lock().unwrap(), ["/pixel.gif"]);
 }
@@ -140,7 +158,37 @@ fn webkit_doctor() {
         .unwrap()
         .args(["doctor", "--backend", "webkit"])
         .timeout(Duration::from_secs(60))
-        .assert()
+        .assert_logged()
         .success()
         .stdout(contains("webkit"));
+}
+
+#[test]
+fn webkit_body_cannot_overpaint_header() {
+    let (d1, benign) = security_eml("<p>real body</p>");
+    let (d2, attack) = security_eml(OVERLAY_ATTACK);
+    let a = d1.path().join("a.png");
+    let b = d2.path().join("b.png");
+    webkit()
+        .args(["-f", "png", "-o"])
+        .arg(&a)
+        .arg(&benign)
+        .assert_logged()
+        .success();
+    webkit()
+        .args(["-f", "png", "-o"])
+        .arg(&b)
+        .arg(&attack)
+        .assert_logged()
+        .success();
+    let (pa, pb) = (png_pixels(&a), png_pixels(&b));
+    assert_eq!(pa.0, pb.0);
+    let header_rows = 150u32;
+    let row_bytes = (pa.0 * 4) as usize;
+    assert_eq!(
+        &pa.2[..row_bytes * header_rows as usize],
+        &pb.2[..row_bytes * header_rows as usize]
+    );
+    assert!(!has_red(&pb, 0, header_rows));
+    assert!(has_red(&pb, header_rows, pb.1));
 }

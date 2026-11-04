@@ -253,3 +253,22 @@ fn eml2_version_names_itself() {
         .success()
         .stdout(contains("eml2jpg"));
 }
+
+#[test]
+fn render_html_renders_a_raw_page() {
+    let d = tempfile::tempdir().unwrap();
+    let page = d.path().join("page.html");
+    std::fs::write(
+        &page,
+        "<html><body><div style=\"height:900px;background:red\">x</div></body></html>",
+    )
+    .unwrap();
+    let out = d.path().join("page.png");
+    doteml()
+        .args(["render-html", "--backend", "chrome", "-o"])
+        .arg(&out)
+        .arg(&page)
+        .assert()
+        .success();
+    assert!(png_height(&out) >= 900, "{}", png_height(&out));
+}

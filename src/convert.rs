@@ -1,12 +1,17 @@
 use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
+use crate::fsutil::{reject_symlink, write_output};
 use crate::html::build_html;
 use crate::parser::parse_eml_bytes;
 use crate::pdfmeta::{EmlSource, write_pdf_metadata};
 use crate::render::{BackendChoice, RenderFormat, RenderOptions, Renderer};
 
 pub const FORMATS: [&str; 4] = ["pdf", "png", "jpg", "html"];
+
+/// Inputs above this size are refused: every attachment is held in memory
+/// and inline images are base64-expanded, so memory use is a multiple of it.
+pub const MAX_EML_BYTES: u64 = 100 * 1024 * 1024;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, clap::ValueEnum)]
 pub enum Format {
@@ -70,13 +75,22 @@ pub fn convert(
         .map(Path::to_path_buf)
         .unwrap_or_else(|| input.with_extension(opts.format.extension()));
 
+    let size = std::fs::metadata(input)?.len();
+    if size > MAX_EML_BYTES {
+        return Err(Error::TooLarge {
+            size,
+            limit: MAX_EML_BYTES,
+        });
+    }
+    reject_symlink(&output)?;
+
     let raw = std::fs::read(input)?;
     let eml = parse_eml_bytes(&raw);
     let html = build_html(&eml, opts.allow_remote);
 
     let fmt = match opts.format {
         Format::Html => {
-            std::fs::write(&output, html)?;
+            write_output(&output, html.as_bytes())?;
             return Ok(output);
         }
         Format::Pdf => RenderFormat::Pdf,

@@ -19,12 +19,36 @@
 
 ## Install
 
+**macOS / Linux**
+
 ```bash
-cargo install --git https://github.com/cyberbanksy/.eml doteml
-doteml doctor
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cyberbanksy/.eml/releases/latest/download/doteml-installer.sh | sh
 ```
 
-Prebuilt binaries, a Homebrew formula, and shell/PowerShell/MSI installers are produced by the release workflow once a version is tagged.
+**Homebrew**
+
+```bash
+brew tap cyberbanksy/eml https://github.com/cyberbanksy/.eml && brew install doteml
+```
+
+**Windows** — download the MSI from the [latest release](https://github.com/cyberbanksy/.eml/releases/latest), or:
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/cyberbanksy/.eml/releases/latest/download/doteml-installer.ps1 | iex"
+```
+
+**From source** (Rust 1.88+): `cargo install --git https://github.com/cyberbanksy/.eml doteml`
+
+Then run `doteml doctor` to confirm a rendering engine was found.
+
+<details>
+<summary>Notes</summary>
+
+- **Linux** builds need glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36, or later).
+- **macOS** archives downloaded with a browser are quarantined by Gatekeeper ("cannot be opened because the developer cannot be verified"). The installer script and Homebrew are not. To clear a downloaded binary: `xattr -d com.apple.quarantine doteml`.
+- After upgrading, run `doteml install` again if you use the right-click action.
+
+</details>
 
 ## Usage
 
@@ -63,6 +87,8 @@ VERIFIED: the PDF carries its source email unchanged.
 
 What this proves: the PDF, the email inside it, and the headers it shows are consistent with each other, which catches corruption and naive edits. It is not a signature — someone can always regenerate a consistent PDF from a different email.
 
+The header block at the top of the page is written by doteml from the parsed headers. The message body is rendered below it in an isolated, script-free frame, so nothing in the email can draw over the header or restyle it. Anything the email itself says — including a fake "From:" line in its body — appears below that block.
+
 ## Rendering engines
 
 | OS | Default engine | Needs |
@@ -71,7 +97,9 @@ What this proves: the PDF, the email inside it, and the headers it shows are con
 | **Windows** | Microsoft Edge (built in) | nothing |
 | **Linux** | Chrome, Chromium, Edge, or Brave | one of those, version 110+ |
 
-With WebKit, a PDF is one page as tall as the email (no awkward page breaks); use `--backend chrome` for US Letter pages. `doteml doctor` shows which engine it found. Force one with `--backend chrome` or `--backend webkit` (or `DOTEML_BACKEND`), and point at a specific browser with `DOTEML_BROWSER=/path/to/chrome`. HTML output needs no engine. On a Mac without a logged-in GUI session (SSH, launchd), use `--backend chrome`.
+With WebKit, a PDF is one page as tall as the email (no awkward page breaks); use `--backend chrome` for US Letter pages. `doteml doctor` shows which engine it found. Force one with `--backend chrome` or `--backend webkit` (or `DOTEML_BACKEND`), and point at a specific browser with `DOTEML_BROWSER=/path/to/chrome`. HTML output needs no engine. On a Mac without a logged-in GUI session (SSH, launchd), WebKit is unavailable and doteml falls back to Chrome automatically.
+
+Inputs larger than 100 MB are refused, and inline images over 25 MB are left out, to keep memory use bounded.
 
 ## Right-click integration
 
@@ -89,7 +117,7 @@ The action runs this binary by its full path, so it works even when `doteml` isn
 
 ## What's preserved
 
-Every output starts with a header block: **Subject, From, To, Cc, Bcc, Reply-To, Date, Message-ID**, and a list of attachments (name and size). Inline `cid:` images are embedded. Headers are shown exactly as written in the email.
+Every output starts with a header block: **Subject, From, To, Cc, Bcc, Reply-To, Date, Message-ID**, and a list of attachments (name and size). Inline `cid:` images are embedded. Headers are shown as written in the email, except that Unicode direction-override characters (used to disguise addresses) are removed from the display.
 
 Attachments other than the email itself aren't rendered — keep the `.eml` (or extract it from the PDF) if you need them.
 

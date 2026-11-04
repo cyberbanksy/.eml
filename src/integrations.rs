@@ -9,8 +9,36 @@ use crate::error::{Error, Result};
 
 pub const ACTION_NAME: &str = "Convert EML to PDF";
 
+/// Path the right-click action should run. Prefers the `doteml` on PATH when it is
+/// this same binary, so a Homebrew `bin/doteml` symlink is recorded instead of a
+/// versioned Cellar path that disappears on upgrade.
 pub fn exe_path() -> Result<PathBuf> {
-    Ok(std::env::current_exe()?)
+    let exe = std::env::current_exe()?;
+    Ok(stable_exe_path(&exe, |name| which::which(name).ok()))
+}
+
+pub(crate) fn stable_exe_path(exe: &Path, lookup: impl Fn(&str) -> Option<PathBuf>) -> PathBuf {
+    let same = |a: &Path, b: &Path| match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    };
+    if let Some(name) = exe.file_name().and_then(|n| n.to_str())
+        && let Some(on_path) = lookup(name)
+        && same(&on_path, exe)
+    {
+        return on_path;
+    }
+    let parts: Vec<_> = exe.components().collect();
+    if let Some(i) = parts.iter().position(|c| c.as_os_str() == "Cellar")
+        && let Some(name) = exe.file_name()
+    {
+        let prefix: PathBuf = parts[..i].iter().collect();
+        let linked = prefix.join("bin").join(name);
+        if same(&linked, exe) {
+            return linked;
+        }
+    }
+    exe.to_path_buf()
 }
 
 fn home() -> Result<PathBuf> {
@@ -347,6 +375,32 @@ mod tests {
             "'/Users/me/my bin/doteml'"
         );
         assert_eq!(sh_quote("it's"), r#"'it'"'"'s'"#);
+    }
+
+    #[test]
+    fn stable_path_prefers_symlink_on_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let cellar = dir.path().join("Cellar/doteml/0.2.0/bin");
+        std::fs::create_dir_all(&cellar).unwrap();
+        let real = cellar.join("doteml");
+        std::fs::write(&real, "").unwrap();
+        std::fs::create_dir_all(dir.path().join("bin")).unwrap();
+        // Symlink resolution is the mechanism; Homebrew only exists on Unix.
+        #[cfg(unix)]
+        {
+            let link = dir.path().join("bin/doteml");
+            std::os::unix::fs::symlink(&real, &link).unwrap();
+            // On PATH and the same file: use the PATH entry.
+            assert_eq!(stable_exe_path(&real, |_| Some(link.clone())), link);
+            // Not on PATH but under Cellar: rewrite to <prefix>/bin.
+            assert_eq!(stable_exe_path(&real, |_| None), link);
+        }
+        // Unrelated binary on PATH: keep the real path.
+        let other = dir.path().join("other");
+        std::fs::write(&other, "").unwrap();
+        let plain = dir.path().join("plain-doteml");
+        std::fs::write(&plain, "").unwrap();
+        assert_eq!(stable_exe_path(&plain, |_| Some(other.clone())), plain);
     }
 
     #[test]
