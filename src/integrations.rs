@@ -9,6 +9,12 @@ use crate::error::{Error, Result};
 
 pub const ACTION_NAME: &str = "Convert EML to PDF";
 
+const FINDER_ID: &str = "com.apple.finder";
+const FINDER_PATH: &str = "/System/Library/CoreServices/Finder.app";
+const FILES_INPUT: &str = "com.apple.Automator.fileSystemObject";
+/// Quick Action icon (Automator's "Documents" image).
+const ICON: &str = "NSTouchBarDocuments";
+
 /// Path the right-click action should run. Prefers the `doteml` on PATH when it is
 /// this same binary, so a Homebrew `bin/doteml` symlink is recorded instead of a
 /// versioned Cellar path that disappears on upgrade.
@@ -153,16 +159,38 @@ pub fn install_macos_at(home: &Path, exe: &Path) -> Result<PathBuf> {
             dict(vec![
                 ("Container", Value::String("List".into())),
                 ("Optional", Value::Boolean(true)),
-                ("Types", strings(&["public.item"])),
+                ("Types", strings(&["com.apple.cocoa.string"])),
             ]),
         ),
-        ("AMActionVersion", Value::String("1.0.2".into())),
+        ("AMActionVersion", Value::String("2.0.3".into())),
         ("AMApplication", strings(&["Automator"])),
         (
             "AMBundleIdentifier",
             Value::String("com.apple.RunShellScript-Action".into()),
         ),
         ("AMCategory", strings(&["AMCategoryUtilities"])),
+        (
+            "AMParameterProperties",
+            dict(
+                [
+                    "COMMAND_STRING",
+                    "CheckedForUserDefaultShell",
+                    "inputMethod",
+                    "shell",
+                    "source",
+                ]
+                .into_iter()
+                .map(|k| (k, dict(vec![])))
+                .collect(),
+            ),
+        ),
+        (
+            "AMProvides",
+            dict(vec![
+                ("Container", Value::String("List".into())),
+                ("Types", strings(&["com.apple.cocoa.string"])),
+            ]),
+        ),
         (
             "ActionBundlePath",
             Value::String("/System/Library/Automator/Run Shell Script.action".into()),
@@ -180,9 +208,9 @@ pub fn install_macos_at(home: &Path, exe: &Path) -> Result<PathBuf> {
         ),
         (
             "BundleIdentifier",
-            Value::String("com.apple.RunShellScript-Action".into()),
+            Value::String("com.apple.RunShellScript".into()),
         ),
-        ("CFBundleVersion", Value::String("1.0.2".into())),
+        ("CFBundleVersion", Value::String("2.0.3".into())),
         ("CanShowSelectedItemsWhenRun", Value::Boolean(false)),
         ("CanShowWhenRun", Value::Boolean(true)),
         ("Category", strings(&["AMCategoryUtilities"])),
@@ -192,7 +220,32 @@ pub fn install_macos_at(home: &Path, exe: &Path) -> Result<PathBuf> {
         ("OutputUUID", Value::String(uuid_v4())),
         ("UUID", Value::String(uuid_v4())),
         ("UnlocalizedApplications", strings(&["Automator"])),
-        ("arguments", dict(vec![])),
+        (
+            "arguments",
+            dict(
+                [
+                    ("0", "inputMethod", Value::Integer(0.into())),
+                    ("1", "CheckedForUserDefaultShell", Value::Boolean(false)),
+                    ("2", "source", Value::String(String::new())),
+                    ("3", "COMMAND_STRING", Value::String(String::new())),
+                    ("4", "shell", Value::String("/bin/sh".into())),
+                ]
+                .into_iter()
+                .map(|(i, name, default)| {
+                    (
+                        i,
+                        dict(vec![
+                            ("default value", default),
+                            ("name", Value::String(name.into())),
+                            ("required", Value::String("0".into())),
+                            ("type", Value::String("0".into())),
+                            ("uuid", Value::String(i.into())),
+                        ]),
+                    )
+                })
+                .collect(),
+            ),
+        ),
         ("isViewVisible", Value::Boolean(true)),
     ]);
     let document = dict(vec![
@@ -201,20 +254,61 @@ pub fn install_macos_at(home: &Path, exe: &Path) -> Result<PathBuf> {
         ("AMDocumentVersion", Value::String("2".into())),
         (
             "actions",
-            Value::Array(vec![dict(vec![("action", action)])]),
+            Value::Array(vec![dict(vec![
+                ("action", action),
+                ("isViewVisible", Value::Boolean(true)),
+            ])]),
         ),
         ("connectors", dict(vec![])),
         (
+            // What Automator writes for a Finder Quick Action that receives files:
+            // without the input types, macOS rejects the input ("There was a problem
+            // with the input to the Service"), and without an icon and presentation
+            // mode the action is listed as a bare context-menu item, not a Quick Action.
             "workflowMetaData",
-            dict(vec![(
-                "workflowTypeIdentifier",
-                Value::String("com.apple.Automator.servicesMenu".into()),
-            )]),
+            dict(vec![
+                ("applicationBundleID", Value::String(FINDER_ID.into())),
+                (
+                    "applicationBundleIDsByPath",
+                    dict(vec![(FINDER_PATH, Value::String(FINDER_ID.into()))]),
+                ),
+                ("applicationPath", Value::String(FINDER_PATH.into())),
+                ("applicationPaths", strings(&[FINDER_PATH])),
+                ("inputTypeIdentifier", Value::String(FILES_INPUT.into())),
+                (
+                    "outputTypeIdentifier",
+                    Value::String("com.apple.Automator.nothing".into()),
+                ),
+                ("presentationMode", Value::Integer(15.into())),
+                ("processesInput", Value::Boolean(false)),
+                (
+                    "serviceApplicationBundleID",
+                    Value::String(FINDER_ID.into()),
+                ),
+                ("serviceApplicationPath", Value::String(FINDER_PATH.into())),
+                (
+                    "serviceInputTypeIdentifier",
+                    Value::String(FILES_INPUT.into()),
+                ),
+                (
+                    "serviceOutputTypeIdentifier",
+                    Value::String("com.apple.Automator.nothing".into()),
+                ),
+                ("serviceProcessesInput", Value::Boolean(false)),
+                ("systemImageName", Value::String(ICON.into())),
+                ("useAutomaticInputType", Value::Boolean(false)),
+                (
+                    "workflowTypeIdentifier",
+                    Value::String("com.apple.Automator.servicesMenu".into()),
+                ),
+            ]),
         ),
     ]);
     let info = dict(vec![(
         "NSServices",
         Value::Array(vec![dict(vec![
+            ("NSBackgroundColorName", Value::String("background".into())),
+            ("NSIconName", Value::String(ICON.into())),
             (
                 "NSMenuItem",
                 dict(vec![("default", Value::String(ACTION_NAME.into()))]),
@@ -224,7 +318,7 @@ pub fn install_macos_at(home: &Path, exe: &Path) -> Result<PathBuf> {
                 "NSRequiredContext",
                 dict(vec![(
                     "NSApplicationIdentifier",
-                    Value::String("com.apple.finder".into()),
+                    Value::String(FINDER_ID.into()),
                 )]),
             ),
             // public.email-message covers Mail's and Outlook's .eml types, which conform to it.
@@ -281,13 +375,17 @@ fn mark_auto_setup_done(home: &Path) -> Result<()> {
 
 /// Installs the Quick Action the first time doteml runs, since package managers
 /// (Homebrew, the install script) cannot write to `~/Library` themselves.
-/// Returns the workflow path if it was installed now. Runs at most once per user:
+/// An existing action is rewritten in the current format. Returns the workflow path
+/// if it was newly installed. Runs at most once per user:
 /// after `doteml uninstall` it stays removed, and `doteml install` adds it back.
 pub fn auto_install_macos_at(home: &Path, exe: &Path) -> Result<Option<PathBuf>> {
     if auto_setup_marker(home).exists() {
         return Ok(None);
     }
     let installed = if macos_installed_at(home) {
+        // Rewrite an action left by an older doteml (0.2.0 wrote one that Finder
+        // rejected), keeping it where the user has it.
+        install_macos_at(home, exe)?;
         None
     } else {
         Some(install_macos_at(home, exe)?)

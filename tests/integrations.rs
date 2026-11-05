@@ -111,11 +111,63 @@ fn macos_auto_install_respects_uninstall() {
 }
 
 #[test]
-fn macos_auto_install_keeps_existing_action() {
+fn macos_auto_install_refreshes_existing_action() {
     let home = tempfile::tempdir().unwrap();
-    let exe = Path::new("/opt/homebrew/bin/doteml");
-    install_macos_at(home.path(), exe).unwrap();
+    let old = install_macos_at(home.path(), Path::new("/old/doteml")).unwrap();
+    std::fs::remove_file(old.join("Contents/Info.plist")).unwrap();
 
+    let exe = Path::new("/opt/homebrew/bin/doteml");
     assert!(auto_install_macos_at(home.path(), exe).unwrap().is_none());
-    assert!(macos_installed_at(home.path()));
+    let doc = std::fs::read_to_string(old.join("Contents/document.wflow")).unwrap();
+    assert!(
+        doc.contains("/opt/homebrew/bin/doteml"),
+        "rewritten for this binary"
+    );
+    assert!(old.join("Contents/Info.plist").exists());
+}
+
+#[test]
+fn macos_workflow_is_a_finder_quick_action() {
+    let home = tempfile::tempdir().unwrap();
+    let workflow = install_macos_at(home.path(), Path::new("/opt/homebrew/bin/doteml")).unwrap();
+    let info = plist::Value::from_file(workflow.join("Contents/Info.plist")).unwrap();
+    let doc = plist::Value::from_file(workflow.join("Contents/document.wflow")).unwrap();
+
+    // An icon is what puts it under Quick Actions instead of the bare context menu.
+    let service = info.as_dictionary().unwrap()["NSServices"]
+        .as_array()
+        .unwrap()[0]
+        .as_dictionary()
+        .unwrap()
+        .clone();
+    assert!(service.contains_key("NSIconName"));
+
+    // Without the input types macOS says "There was a problem with the input to the Service".
+    let meta = doc.as_dictionary().unwrap()["workflowMetaData"]
+        .as_dictionary()
+        .unwrap();
+    for key in ["serviceInputTypeIdentifier", "inputTypeIdentifier"] {
+        assert_eq!(
+            meta[key].as_string(),
+            Some("com.apple.Automator.fileSystemObject"),
+            "{key}"
+        );
+    }
+    assert_eq!(
+        meta["serviceApplicationBundleID"].as_string(),
+        Some("com.apple.finder")
+    );
+    assert!(meta.contains_key("presentationMode"));
+
+    // The current Run Shell Script action, so Automator doesn't warn about an old version.
+    let action = doc.as_dictionary().unwrap()["actions"].as_array().unwrap()[0]
+        .as_dictionary()
+        .unwrap()["action"]
+        .as_dictionary()
+        .unwrap();
+    assert_eq!(
+        action["BundleIdentifier"].as_string(),
+        Some("com.apple.RunShellScript")
+    );
+    assert_eq!(action["AMActionVersion"].as_string(), Some("2.0.3"));
 }
