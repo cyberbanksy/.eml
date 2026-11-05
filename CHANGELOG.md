@@ -12,6 +12,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- On macOS, the Finder Quick Action is set up automatically on first run, and `doteml doctor` shows whether it is installed.
 - Fuzz targets for email parsing and PDF verification (`cargo fuzz`), run in CI.
 - Release archives ship their SLSA build-provenance bundle (`*.intoto.jsonl`) and a CycloneDX SBOM.
 - macOS binaries are signed and notarized when signing secrets are configured.

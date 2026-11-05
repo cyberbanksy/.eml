@@ -134,7 +134,9 @@ fn strings(items: &[&str]) -> Value {
 }
 
 pub fn install_macos() -> Result<PathBuf> {
-    install_macos_at(&home()?, &exe_path()?)
+    let workflow = install_macos_at(&home()?, &exe_path()?)?;
+    refresh_macos_services();
+    Ok(workflow)
 }
 
 pub fn install_macos_at(home: &Path, exe: &Path) -> Result<PathBuf> {
@@ -251,7 +253,72 @@ pub fn uninstall_macos_at(home: &Path) -> Result<()> {
     if workflow.exists() {
         std::fs::remove_dir_all(workflow)?;
     }
+    // Removed on purpose: don't add it back on the next run.
+    mark_auto_setup_done(home)?;
+    refresh_macos_services();
     Ok(())
+}
+
+/// Whether the Quick Action is installed.
+pub fn macos_installed_at(home: &Path) -> bool {
+    macos_workflow(home).exists()
+}
+
+/// Written once doteml has set up the Quick Action by itself (or the user removed
+/// it), so the automatic setup in [`auto_install_macos_at`] happens only once.
+fn auto_setup_marker(home: &Path) -> PathBuf {
+    home.join("Library/Application Support/doteml/quick-action-setup")
+}
+
+fn mark_auto_setup_done(home: &Path) -> Result<()> {
+    let marker = auto_setup_marker(home);
+    if let Some(dir) = marker.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(marker, b"")?;
+    Ok(())
+}
+
+/// Installs the Quick Action the first time doteml runs, since package managers
+/// (Homebrew, the install script) cannot write to `~/Library` themselves.
+/// Returns the workflow path if it was installed now. Runs at most once per user:
+/// after `doteml uninstall` it stays removed, and `doteml install` adds it back.
+pub fn auto_install_macos_at(home: &Path, exe: &Path) -> Result<Option<PathBuf>> {
+    if auto_setup_marker(home).exists() {
+        return Ok(None);
+    }
+    let installed = if macos_installed_at(home) {
+        None
+    } else {
+        Some(install_macos_at(home, exe)?)
+    };
+    mark_auto_setup_done(home)?;
+    Ok(installed)
+}
+
+/// [`auto_install_macos_at`] for the current user, unless `DOTEML_NO_AUTO_INSTALL`
+/// or `CI` is set.
+pub fn auto_install_macos() -> Result<Option<PathBuf>> {
+    if std::env::var_os("DOTEML_NO_AUTO_INSTALL").is_some() || std::env::var_os("CI").is_some() {
+        return Ok(None);
+    }
+    let installed = auto_install_macos_at(&home()?, &exe_path()?)?;
+    if installed.is_some() {
+        refresh_macos_services();
+    }
+    Ok(installed)
+}
+
+/// Asks macOS to re-scan `~/Library/Services` so Finder lists the change right away.
+pub fn refresh_macos_services() {
+    let pbs = Path::new("/System/Library/CoreServices/pbs");
+    if cfg!(target_os = "macos") && pbs.exists() {
+        let _ = std::process::Command::new(pbs)
+            .arg("-update")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
 }
 
 // --- Windows Send To ---

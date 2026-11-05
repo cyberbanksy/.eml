@@ -83,3 +83,39 @@ fn linux_desktop_entry_quotes_exec() {
     uninstall_linux_at(data.path()).unwrap();
     assert!(!desktop.exists());
 }
+
+#[test]
+fn macos_auto_install_runs_once() {
+    let home = tempfile::tempdir().unwrap();
+    let exe = Path::new("/opt/homebrew/bin/doteml");
+
+    let first = auto_install_macos_at(home.path(), exe).unwrap();
+    assert!(first.is_some(), "first run installs the Quick Action");
+    assert!(macos_installed_at(home.path()));
+
+    assert!(auto_install_macos_at(home.path(), exe).unwrap().is_none());
+}
+
+#[test]
+fn macos_auto_install_respects_uninstall() {
+    let home = tempfile::tempdir().unwrap();
+    let exe = Path::new("/opt/homebrew/bin/doteml");
+    install_macos_at(home.path(), exe).unwrap();
+    uninstall_macos_at(home.path()).unwrap();
+
+    assert!(auto_install_macos_at(home.path(), exe).unwrap().is_none());
+    assert!(
+        !macos_installed_at(home.path()),
+        "a removed Quick Action stays removed"
+    );
+}
+
+#[test]
+fn macos_auto_install_keeps_existing_action() {
+    let home = tempfile::tempdir().unwrap();
+    let exe = Path::new("/opt/homebrew/bin/doteml");
+    install_macos_at(home.path(), exe).unwrap();
+
+    assert!(auto_install_macos_at(home.path(), exe).unwrap().is_none());
+    assert!(macos_installed_at(home.path()));
+}

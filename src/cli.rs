@@ -129,10 +129,27 @@ pub fn format_entry(format: Format) -> ExitCode {
     let cmd = FormatCli::command().name(name).bin_name(name).about(about);
     let matches = cmd.get_matches();
     let cli = FormatCli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+    auto_setup();
     run_convert(format, cli.common)
 }
 
+/// First run on macOS: add the Finder Quick Action without a separate step.
+fn auto_setup() {
+    if cfg!(target_os = "macos")
+        && let Ok(Some(_)) = integrations::auto_install_macos()
+    {
+        eprintln!(
+            "doteml: added the Finder Quick Action: right-click an .eml file -> Quick Actions -> {} \
+             (remove it with `doteml uninstall`)",
+            integrations::ACTION_NAME
+        );
+    }
+}
+
 pub fn run(cli: Cli) -> ExitCode {
+    if !matches!(cli.cmd, Cmd::Install | Cmd::Uninstall) {
+        auto_setup();
+    }
     match cli.cmd {
         Cmd::Convert { common, format } => run_convert(format, common),
         Cmd::Doctor { backend } => run_doctor(backend),
@@ -249,6 +266,18 @@ fn run_doctor(backend: BackendChoice) -> ExitCode {
                 println!("Version:  {}", info.product);
             }
             println!("OK: ready to convert PDF, PNG, and JPG.");
+            if cfg!(target_os = "macos")
+                && let Some(home) = dirs::home_dir()
+            {
+                if integrations::macos_installed_at(&home) {
+                    println!(
+                        "Finder:   Quick Action \"{}\" installed",
+                        integrations::ACTION_NAME
+                    );
+                } else {
+                    println!("Finder:   Quick Action not installed (run `doteml install`)");
+                }
+            }
             ExitCode::SUCCESS
         }
         Err(e) => {
