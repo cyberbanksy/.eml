@@ -1,6 +1,6 @@
 [package]
 name = "doteml"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 rust-version = "1.88"
 description = "Convert .eml email files to PDF, PNG, JPG, or HTML"
