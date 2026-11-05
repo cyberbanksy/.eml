@@ -1,0 +1,23 @@
+# cargo deny check — run in CI (see .github/workflows/ci.yml)
+
+[graph]
+all-features = true
+
+[advisories]
+# Fail on RustSec vulnerabilities and on unmaintained or yanked crates
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+# MPL-2.0 is file-level copyleft (option-ext, via dirs); fine to ship in an MIT binary
+allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-3-Clause", "MPL-2.0", "Unicode-3.0"]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
