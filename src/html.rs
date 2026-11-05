@@ -149,11 +149,11 @@ fn row(label: &str, value: &str) -> String {
     )
 }
 
+/// A fresh 128-bit CSP nonce from the operating system's secure RNG.
 fn nonce() -> String {
-    let a = std::collections::hash_map::RandomState::new();
-    let b = std::collections::hash_map::RandomState::new();
-    use std::hash::BuildHasher;
-    format!("{:016x}{:016x}", a.hash_one(0u8), b.hash_one(1u8))
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).expect("operating system RNG unavailable");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// The trusted header block from the email's metadata.
@@ -240,6 +240,14 @@ mod tests {
     fn display_strips_bidi_controls() {
         assert_eq!(display("bank\u{202E}moc.live"), "bankmoc.live");
         assert_eq!(display("a\u{2066}b\u{2069}c"), "abc");
+    }
+
+    #[test]
+    fn nonces_are_random_hex() {
+        let (a, b) = (nonce(), nonce());
+        assert_eq!(a.len(), 32);
+        assert!(a.bytes().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(a, b);
     }
 
     #[test]

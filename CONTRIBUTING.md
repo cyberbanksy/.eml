@@ -24,6 +24,16 @@ rustup target add aarch64-apple-darwin
 cargo clippy --target aarch64-apple-darwin --all-targets -- -D warnings
 ```
 
+## Fuzzing
+
+```bash
+cargo install cargo-fuzz
+cargo +nightly fuzz run eml fuzz/corpus/eml tests/fixtures   # email parsing and page building
+cargo +nightly fuzz run pdf                                  # embedded-.eml extraction from PDFs
+```
+
+CI runs each target for a minute on every push.
+
 ## Lint
 
 ```bash
@@ -47,8 +57,11 @@ installers and the MSI, creates the GitHub Release, and commits `Formula/doteml.
 that same-repo tap (`ref: main`, `GITHUB_TOKEN`), and the `host` job uploads into an
 existing release instead of failing. The `build-local-artifacts` job also sets
 `CODESIGN_OPTIONS: runtime` (hardened runtime, needed for notarization), and the global
-build uploads `steps.cargo-cyclonedx.outputs.paths` (cargo-dist writes `output`). Re-apply
-those edits if you ever run `dist generate` again.
+build uploads `steps.cargo-cyclonedx.outputs.paths` (cargo-dist writes `output`). For
+least privilege the workflow's default permission is `contents: read`, with `contents: write`
+only on `host` and `publish-homebrew-formula`; actions are pinned to commit SHAs; and each
+build job copies its attestation bundle to `doteml-<target>.intoto.jsonl` so it ships with
+the release. Re-apply those edits if you ever run `dist generate` again.
 
 ### macOS signing and notarization
 
