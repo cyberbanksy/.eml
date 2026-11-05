@@ -92,5 +92,5 @@ jobs:
         with:
           workspaces: fuzz
       - run: cargo install cargo-fuzz --locked
-      - run: cargo fuzz run eml fuzz/corpus/eml tests/fixtures -- -max_total_time=60
+      - run: mkdir -p fuzz/corpus/eml && cargo fuzz run eml fuzz/corpus/eml tests/fixtures -- -max_total_time=60
       - run: cargo fuzz run pdf -- -max_total_time=60
