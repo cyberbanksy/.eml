@@ -39,9 +39,11 @@ cargo clippy --all-targets -- -D warnings
 
 ## Releases
 
-Tag `vX.Y.Z` (matching `Cargo.toml`) and push the tag; cargo-dist builds the archives,
+Tag `vX.Y.Z` (matching `Cargo.toml`) and push the tag, or publish a release with a new
+`vX.Y.Z` tag on `main` from GitHub's Releases page; cargo-dist builds the archives,
 installers and the MSI, creates the GitHub Release, and commits `Formula/doteml.rb` to
 `main` so `brew tap cyberbanksy/eml https://github.com/cyberbanksy/.eml` works. The
 `publish-homebrew-formula` job in `.github/workflows/release.yml` is hand-adjusted for
-that same-repo tap (`ref: main`, `GITHUB_TOKEN`); re-apply those two lines if you ever
-run `dist generate` again.
+that same-repo tap (`ref: main`, `GITHUB_TOKEN`), and the `host` job uploads into an
+existing release instead of failing; re-apply those edits if you ever run `dist generate`
+again.
