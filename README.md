@@ -5,6 +5,7 @@
 **Turn `.eml` files into PDF, PNG, JPG, or HTML — from the terminal or a right-click. One small binary.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/cyberbanksy/.eml/ci.yml?branch=main&style=flat-square)](https://github.com/cyberbanksy/.eml/actions)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cyberbanksy/.eml/badge)](https://scorecard.dev/viewer/?uri=github.com/cyberbanksy/.eml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
 </div>
@@ -46,6 +47,7 @@ Then run `doteml doctor` to confirm a rendering engine was found.
 
 - **Linux** builds need glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36, or later).
 - **macOS** archives downloaded with a browser are quarantined by Gatekeeper ("cannot be opened because the developer cannot be verified"). The installer script and Homebrew are not. To clear a downloaded binary: `xattr -d com.apple.quarantine doteml`.
+- **Verifying a download**: every release archive carries a GitHub build-provenance attestation (`gh attestation verify <archive> --repo cyberbanksy/.eml`) and a CycloneDX SBOM. See [SECURITY.md](SECURITY.md).
 - After upgrading, run `doteml install` again if you use the right-click action.
 
 </details>
