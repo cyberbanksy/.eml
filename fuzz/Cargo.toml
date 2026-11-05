@@ -1,0 +1,31 @@
+[package]
+name = "doteml-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+lopdf = "0.46.0"
+doteml = { path = ".." }
+
+# Keep this crate out of the main package's build
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "eml"
+path = "fuzz_targets/eml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pdf"
+path = "fuzz_targets/pdf.rs"
+test = false
+doc = false
+bench = false
