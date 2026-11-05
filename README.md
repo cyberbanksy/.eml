@@ -6,6 +6,7 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/cyberbanksy/.eml/ci.yml?branch=main&style=flat-square)](https://github.com/cyberbanksy/.eml/actions)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cyberbanksy/.eml/badge)](https://scorecard.dev/viewer/?uri=github.com/cyberbanksy/.eml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16365/badge)](https://www.bestpractices.dev/projects/16365)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
 </div>
