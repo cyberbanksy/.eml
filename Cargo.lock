@@ -456,6 +456,7 @@ dependencies = [
  "block2",
  "clap",
  "dirs",
+ "getrandom",
  "libc",
  "lopdf",
  "mail-parser",

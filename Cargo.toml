@@ -37,6 +37,7 @@ thiserror = "2"
 plist = "1.10.3"
 which = "8"
 dirs = "7"
+getrandom = "0.4"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
