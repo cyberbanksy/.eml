@@ -28,6 +28,7 @@ cargo clippy --target aarch64-apple-darwin --all-targets -- -D warnings
 
 ```bash
 cargo install cargo-fuzz
+mkdir -p fuzz/corpus/eml
 cargo +nightly fuzz run eml fuzz/corpus/eml tests/fixtures   # email parsing and page building
 cargo +nightly fuzz run pdf                                  # embedded-.eml extraction from PDFs
 ```

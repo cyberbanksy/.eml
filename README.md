@@ -107,6 +107,8 @@ Inputs larger than 100 MB are refused, and inline images over 25 MB are left out
 
 ## Right-click integration
 
+On macOS the Quick Action is added automatically the first time you run doteml (any command, e.g. `doteml doctor`). It's added only once: after `doteml uninstall` it stays removed. Set `DOTEML_NO_AUTO_INSTALL=1` to turn this off. On Windows and Linux, or to add it back:
+
 ```bash
 doteml install     # remove with: doteml uninstall
 ```
