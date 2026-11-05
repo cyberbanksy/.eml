@@ -45,5 +45,24 @@ installers and the MSI, creates the GitHub Release, and commits `Formula/doteml.
 `main` so `brew tap cyberbanksy/eml https://github.com/cyberbanksy/.eml` works. The
 `publish-homebrew-formula` job in `.github/workflows/release.yml` is hand-adjusted for
 that same-repo tap (`ref: main`, `GITHUB_TOKEN`), and the `host` job uploads into an
-existing release instead of failing; re-apply those edits if you ever run `dist generate`
-again.
+existing release instead of failing. The `build-local-artifacts` job also sets
+`CODESIGN_OPTIONS: runtime` (hardened runtime, needed for notarization), and the global
+build uploads `steps.cargo-cyclonedx.outputs.paths` (cargo-dist writes `output`). Re-apply
+those edits if you ever run `dist generate` again.
+
+### macOS signing and notarization
+
+Releases are signed and notarized only when these repository secrets exist (Settings →
+Secrets and variables → Actions); without them the binaries ship unsigned.
+
+| Secret | Value |
+|---|---|
+| `CODESIGN_CERTIFICATE` | Your *Developer ID Application* certificate exported as `.p12`, base64-encoded (`base64 -i cert.p12 \| pbcopy`) |
+| `CODESIGN_CERTIFICATE_PASSWORD` | The `.p12` export password |
+| `CODESIGN_IDENTITY` | The certificate's name, e.g. `Developer ID Application: Jane Doe (TEAMID1234)` |
+| `APPLE_API_KEY` | Contents of an App Store Connect API key (`AuthKey_XXXX.p8`, role *Developer*) |
+| `APPLE_API_KEY_ID` | That key's ID |
+| `APPLE_API_ISSUER` | The issuer ID shown above the key list in App Store Connect |
+
+cargo-dist signs during the build; `.github/workflows/notarize.yml` then submits the
+macOS archives to Apple once the release workflow succeeds (or run it by hand with a tag).

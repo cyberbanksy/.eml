@@ -1,0 +1,76 @@
+name: Notarize
+
+# After a release is built, submit its signed macOS binaries to Apple's notary
+# service so Gatekeeper accepts them when they are downloaded in a browser.
+# Bare executables cannot be stapled; Gatekeeper looks the ticket up online.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to notarize (e.g. v0.2.0)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  notarize:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
+    steps:
+      - name: Check secrets
+        id: secrets
+        run: |
+          if [ -z "$APPLE_API_KEY" ] || [ -z "$APPLE_API_KEY_ID" ] || [ -z "$APPLE_API_ISSUER" ] || [ -z "$CODESIGN_IDENTITY" ]; then
+            echo "::notice::Signing/notarization secrets are not set; skipping notarization."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Download macOS archives
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          mkdir -p dl && cd dl
+          gh release download "$TAG" --pattern '*-apple-darwin.tar.xz'
+          for f in *.tar.xz; do mkdir "${f%.tar.xz}" && tar -xJf "$f" -C "${f%.tar.xz}"; done
+      - name: Check signatures
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          find dl -type f -perm -111 -print0 | while IFS= read -r -d '' bin; do
+            codesign --verify --strict --verbose=2 "$bin"
+            codesign --display --verbose=2 "$bin" 2>&1 | grep -q 'flags=.*runtime' \
+              || { echo "::error::$bin is not signed with the hardened runtime"; exit 1; }
+          done
+      - name: Submit to the notary service
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          key="$RUNNER_TEMP/notary.p8"
+          printf '%s' "$APPLE_API_KEY" > "$key"
+          for dir in dl/*/; do
+            zip="$RUNNER_TEMP/$(basename "$dir").zip"
+            ditto -c -k --keepParent "$dir" "$zip"
+            out=$(xcrun notarytool submit "$zip" --key "$key" --key-id "$APPLE_API_KEY_ID" \
+              --issuer "$APPLE_API_ISSUER" --wait --output-format json)
+            echo "$out"
+            id=$(echo "$out" | jq -r .id)
+            status=$(echo "$out" | jq -r .status)
+            if [ "$status" != "Accepted" ]; then
+              xcrun notarytool log "$id" --key "$key" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER"
+              exit 1
+            fi
+          done
+          rm -f "$key"

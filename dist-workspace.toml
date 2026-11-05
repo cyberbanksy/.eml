@@ -23,3 +23,11 @@ install-path = "CARGO_HOME"
 hosting = "github"
 # Whether to install an updater program
 install-updater = false
+# Build provenance (SLSA) attestations for every release artifact
+github-attestations = true
+# Embed the dependency tree in each binary (readable by `cargo audit bin`)
+cargo-auditable = true
+# Publish a CycloneDX SBOM alongside each release
+cargo-cyclonedx = true
+# Sign macOS binaries with a Developer ID certificate when the CODESIGN_* secrets are set
+macos-sign = true
