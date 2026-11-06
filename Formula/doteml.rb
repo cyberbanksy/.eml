@@ -3,25 +3,25 @@
 class Doteml < Formula
   desc "Convert .eml email files to PDF, PNG, JPG, or HTML"
   homepage "https://github.com/cyberbanksy/.eml"
-  version "0.2.0"
+  version "0.2.2"
   if OS.mac?
     if Hardware::CPU.arm?
-      url "https://github.com/cyberbanksy/.eml/releases/download/v0.2.0/doteml-aarch64-apple-darwin.tar.xz"
-      sha256 "9c60482d1950ac415eac18f86479b05d7ba49a4a195c341db2fc47782e9879fa"
+      url "https://github.com/cyberbanksy/.eml/releases/download/v0.2.2/doteml-aarch64-apple-darwin.tar.xz"
+      sha256 "3e8560eac8fecb1f92c80cb0257e8700b049908114ab8857da773df55812a1d9"
     end
     if Hardware::CPU.intel?
-      url "https://github.com/cyberbanksy/.eml/releases/download/v0.2.0/doteml-x86_64-apple-darwin.tar.xz"
-      sha256 "0ecc7cb7148249504d4c5e66efbd5f751ab827d6cf22d836b987995040c18469"
+      url "https://github.com/cyberbanksy/.eml/releases/download/v0.2.2/doteml-x86_64-apple-darwin.tar.xz"
+      sha256 "fe6c1bf03ec91cb5b084d65ff7867dc6775eead93e7ee898522fef8a78463c27"
     end
   end
   if OS.linux?
     if Hardware::CPU.arm?
-      url "https://github.com/cyberbanksy/.eml/releases/download/v0.2.0/doteml-aarch64-unknown-linux-gnu.tar.xz"
-      sha256 "5ab583a32140ba787c3c6ddb51e2a108fc2e865e242b9c191d67b5d5e034601f"
+      url "https://github.com/cyberbanksy/.eml/releases/download/v0.2.2/doteml-aarch64-unknown-linux-gnu.tar.xz"
+      sha256 "9695b3495e966c4b909abec25198f20c99cb9746a2cc47ab0d6fc78a700929b3"
     end
     if Hardware::CPU.intel?
-      url "https://github.com/cyberbanksy/.eml/releases/download/v0.2.0/doteml-x86_64-unknown-linux-gnu.tar.xz"
-      sha256 "bcf46b24a2d103d397c19391c8efdac7da2f9ab0f53e8ac30f71170f08421b03"
+      url "https://github.com/cyberbanksy/.eml/releases/download/v0.2.2/doteml-x86_64-unknown-linux-gnu.tar.xz"
+      sha256 "766e2693b1d1975ccbccf04ffb05a91db103f8db1b54e690496eeed37886c27e"
     end
   end
   license "MIT"
