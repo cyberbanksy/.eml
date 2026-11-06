@@ -31,3 +31,8 @@ cargo-auditable = true
 cargo-cyclonedx = true
 # Sign macOS binaries with a Developer ID certificate when the CODESIGN_* secrets are set
 macos-sign = true
+
+# GitHub no longer runs macos-14 jobs; dist 0.32 still defaults Apple Silicon builds to it
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
+x86_64-apple-darwin = "macos-15-intel"
