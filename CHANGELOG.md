@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.2.2 - 2026-11-05
+
+### Fixed
+
+- Release builds for Apple Silicon Macs run on the `macos-15` runner; GitHub no longer accepts `macos-14`, so 0.2.1 never published binaries.
+
 ## 0.2.1 - 2026-11-05
 
 ### Security
