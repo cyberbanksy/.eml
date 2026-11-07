@@ -6,11 +6,12 @@ rust-version = "1.88"
 description = "Convert .eml email files to PDF, PNG, JPG, or HTML"
 license = "MIT"
 repository = "https://github.com/cyberbanksy/.eml"
-homepage = "https://github.com/cyberbanksy/.eml"
 authors = ["cyberbanksy"]
 keywords = ["email", "eml", "pdf", "converter", "cli"]
 categories = ["command-line-utilities", "email"]
 default-run = "doteml"
+# What ships to crates.io: the sources and docs, not CI, packaging or test fixtures
+include = ["src/**", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [package.metadata.wix]
 upgrade-guid = "896A0C9D-EEA3-45B8-98FE-8CD1C5CD8760"

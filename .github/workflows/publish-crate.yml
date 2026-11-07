@@ -1,0 +1,70 @@
+name: Publish crate
+
+# After a release is built, publish the same version to crates.io so
+# `cargo install doteml` works. Uses crates.io trusted publishing (no stored
+# token); a CARGO_REGISTRY_TOKEN secret, if set, is used instead (needed for
+# the very first publish, before trusted publishing can be configured).
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v0.2.2)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write # trusted publishing
+    env:
+      TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+      - name: Check the tag matches Cargo.toml and is not published yet
+        id: check
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "doteml") | .version')
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match Cargo.toml version $version"; exit 1
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' -A 'doteml-release (github.com/cyberbanksy/.eml)' \
+            "https://crates.io/api/v1/crates/doteml/$version")
+          if [ "$code" = 200 ]; then
+            echo "::notice::doteml $version is already on crates.io"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Use the stored token if there is one
+        id: token
+        if: steps.check.outputs.publish == 'true'
+        env:
+          STORED: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: echo "stored=$([ -n "$STORED" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Get a short-lived crates.io token
+        id: auth
+        if: steps.check.outputs.publish == 'true' && steps.token.outputs.stored != 'true'
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+      - name: cargo publish
+        if: steps.check.outputs.publish == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --locked

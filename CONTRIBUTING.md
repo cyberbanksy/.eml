@@ -64,6 +64,17 @@ only on `host` and `publish-homebrew-formula`; actions are pinned to commit SHAs
 build job copies its attestation bundle to `doteml-<target>.intoto.jsonl` so it ships with
 the release. Re-apply those edits if you ever run `dist generate` again.
 
+### crates.io
+
+`.github/workflows/publish-crate.yml` publishes each release to crates.io after the
+release workflow succeeds (or run it by hand with a tag). It uses crates.io trusted
+publishing, so no token is stored. The very first publish needs a token: create one at
+crates.io → Account Settings → API Tokens (scope `publish-new`), save it as the
+`CARGO_REGISTRY_TOKEN` repository secret, run the workflow for the current tag, then on
+crates.io open the crate → Settings → Trusted Publishing → add GitHub repository
+`cyberbanksy/.eml`, workflow `publish-crate.yml`, environment `crates-io`, and delete the
+secret and the token.
+
 ### macOS signing and notarization
 
 Releases are signed and notarized only when these repository secrets exist (Settings →
