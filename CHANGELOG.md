@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- Releases are published to crates.io, so `cargo install doteml` works.
+
 ## 0.2.2 - 2026-11-05
 
 ### Fixed
