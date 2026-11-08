@@ -24,7 +24,7 @@ path = "src/main.rs"
 
 [dependencies]
 mail-parser = "=0.11.9"
-lopdf = "0.46.0"
+lopdf = "0.47.0"
 tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
 serde_json = "1.0.154"
 serde = { version = "1", features = ["derive"] }
