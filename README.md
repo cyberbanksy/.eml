@@ -29,11 +29,6 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cyberbanksy/.eml/releas
 
 **Homebrew**
 
-```bash
-brew tap cyberbanksy/eml https://github.com/cyberbanksy/.eml
-brew trust cyberbanksy/eml
-brew install doteml
-```
 
 Homebrew 7 refuses to install from a third-party tap until you trust it, which is what `brew trust` does.
 
@@ -43,7 +38,7 @@ Homebrew 7 refuses to install from a third-party tap until you trust it, which i
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/cyberbanksy/.eml/releases/latest/download/doteml-installer.ps1 | iex"
 ```
 
-**From source** (Rust 1.88+): `cargo install --git https://github.com/cyberbanksy/.eml doteml`
+**From crates.io** (Rust 1.88+): `cargo install doteml`
 
 Then run `doteml doctor` to confirm a rendering engine was found.
 

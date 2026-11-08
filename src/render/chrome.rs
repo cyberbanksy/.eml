@@ -6,7 +6,9 @@ use std::time::Duration;
 use base64::Engine;
 use serde_json::{Value, json};
 
-use super::{Backend, BackendInfo, RenderFormat, RenderOptions, check_version, file_url};
+use super::{
+    Backend, BackendInfo, RenderFormat, RenderOptions, check_image_height, check_version, file_url,
+};
 use crate::browser::find_browser;
 use crate::cdp::Browser;
 use crate::error::{Error, Result};
@@ -155,6 +157,7 @@ impl Backend for ChromeBackend {
                     };
                     let w = size["width"].as_f64().unwrap_or(800.0).ceil().max(1.0);
                     let h = size["height"].as_f64().unwrap_or(600.0).ceil().max(1.0);
+                    check_image_height(fmt, h)?;
                     let mut params = json!({
                         "format": if fmt == RenderFormat::Png { "png" } else { "jpeg" },
                         "captureBeyondViewport": true,
@@ -173,7 +176,11 @@ impl Backend for ChromeBackend {
                     }
                 }
             };
+            // Chrome answers an image it cannot encode with empty data, not an error.
             let encoded = data["data"].as_str().unwrap_or_default();
+            if encoded.is_empty() {
+                return Err(Error::Cdp("the browser returned an empty render".into()));
+            }
             base64::engine::general_purpose::STANDARD
                 .decode(encoded)
                 .map_err(|e| Error::Cdp(format!("Bad render output: {e}")))

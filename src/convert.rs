@@ -64,8 +64,10 @@ pub fn convert(
     }
     let ext = input.extension().and_then(|e| e.to_str()).unwrap_or("");
     if !ext.eq_ignore_ascii_case("eml") {
-        let shown = if ext.is_empty() {
-            String::new()
+        let shown = if input.is_dir() {
+            "a directory".into()
+        } else if ext.is_empty() {
+            "a file with no extension".into()
         } else {
             format!(".{ext}")
         };

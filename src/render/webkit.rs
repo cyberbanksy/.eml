@@ -24,7 +24,7 @@ use objc2_web_kit::{
     WKWebView, WKWebViewConfiguration, WKWebsiteDataStore,
 };
 
-use super::{Backend, BackendInfo, RenderFormat, RenderOptions};
+use super::{Backend, BackendInfo, RenderFormat, RenderOptions, check_image_height};
 use crate::error::{Error, Result};
 use crate::fsutil::{private_tempdir, write_output};
 use crate::html::{FRAME_STATE_SCRIPT, RESIZE_SCRIPT};
@@ -401,7 +401,12 @@ impl WebKitBackend {
             return Err(backend_err("WebKit snapshot timed out"));
         }
         let image = out.borrow_mut().take().unwrap().map_err(backend_err)?;
-        encode_image(&image, fmt, quality)
+        // ImageIO gives up on extremely tall bitmaps (~200,000 px); say what to do instead.
+        encode_image(&image, fmt, quality).map_err(|e| {
+            backend_err(format!(
+                "{e} ({height:.0} px tall); use -f pdf or --backend chrome"
+            ))
+        })
     }
 
     fn create_pdf(&self, height: f64) -> Result<Vec<u8>> {
@@ -502,19 +507,20 @@ impl Backend for WebKitBackend {
 
         self.wait_for_frame();
         let height = self.content_height();
-        self.resize(height);
-        pump_until(|| false, Duration::from_millis(100)); // let layout settle at the new size
-
-        let result = match fmt {
-            RenderFormat::Png | RenderFormat::Jpg => self
-                .snapshot(height, fmt, quality)
-                .and_then(|bytes| write_output(output, &bytes)),
-            // A single page as tall as the email. AppKit's paginated print path
-            // (NSPrintOperation) blocks forever in a CLI, so it is not used.
-            RenderFormat::Pdf => self
-                .create_pdf(height)
-                .and_then(|bytes| write_output(output, &bytes)),
-        };
+        let result = check_image_height(fmt, height).and_then(|()| {
+            self.resize(height);
+            pump_until(|| false, Duration::from_millis(100)); // let layout settle at the new size
+            match fmt {
+                RenderFormat::Png | RenderFormat::Jpg => self
+                    .snapshot(height, fmt, quality)
+                    .and_then(|bytes| write_output(output, &bytes)),
+                // A single page as tall as the email. AppKit's paginated print path
+                // (NSPrintOperation) blocks forever in a CLI, so it is not used.
+                RenderFormat::Pdf => self
+                    .create_pdf(height)
+                    .and_then(|bytes| write_output(output, &bytes)),
+            }
+        });
         // Release the document before the staging directory goes away.
         unsafe {
             self.webview
