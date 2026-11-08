@@ -31,9 +31,11 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cyberbanksy/.eml/releas
 
 ```bash
 brew tap cyberbanksy/eml https://github.com/cyberbanksy/.eml
-brew trust cyberbanksy/eml   # newer Homebrew asks you to trust third-party taps
+brew trust cyberbanksy/eml
 brew install doteml
 ```
+
+Homebrew 7 refuses to install from a third-party tap until you trust it, which is what `brew trust` does.
 
 **Windows** — download the MSI from the [latest release](https://github.com/cyberbanksy/.eml/releases/latest), or:
 
