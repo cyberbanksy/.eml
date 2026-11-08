@@ -272,3 +272,17 @@ fn render_html_renders_a_raw_page() {
         .success();
     assert!(png_height(&out) >= 900, "{}", png_height(&out));
 }
+
+#[test]
+fn chrome_refuses_jpg_taller_than_jpeg_allows() {
+    let (d, p) = tall_eml();
+    let out = d.path().join("tall.jpg");
+    doteml()
+        .args(["--backend", "chrome", "-f", "jpg", "-o"])
+        .arg(&out)
+        .arg(&p)
+        .assert()
+        .failure()
+        .stderr(contains("65,535"));
+    assert!(!out.exists(), "no empty or partial file is left behind");
+}

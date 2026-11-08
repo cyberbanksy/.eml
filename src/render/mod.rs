@@ -98,6 +98,19 @@ impl Renderer {
     }
 }
 
+/// JPEG stores each dimension in 16 bits, so taller images cannot be encoded.
+const JPEG_MAX_HEIGHT: f64 = 65_535.0;
+
+/// Refuse an image the format cannot hold, before spending time rendering it.
+pub(crate) fn check_image_height(fmt: RenderFormat, height: f64) -> Result<()> {
+    if fmt == RenderFormat::Jpg && height > JPEG_MAX_HEIGHT {
+        return Err(Error::Backend(format!(
+            "the email is {height:.0} px tall; JPG allows at most 65,535 px (use -f png or -f pdf)"
+        )));
+    }
+    Ok(())
+}
+
 #[cfg(target_os = "macos")]
 fn webkit_backend(opts: RenderOptions) -> Result<Box<dyn Backend>> {
     Ok(Box::new(webkit::WebKitBackend::new(opts)?))
@@ -145,6 +158,15 @@ pub(crate) fn file_url(path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn jpg_height_limit() {
+        assert!(check_image_height(RenderFormat::Jpg, 65_535.0).is_ok());
+        let err = check_image_height(RenderFormat::Jpg, 65_536.0).unwrap_err();
+        assert!(err.to_string().contains("65,535"));
+        assert!(check_image_height(RenderFormat::Png, 200_000.0).is_ok());
+        assert!(check_image_height(RenderFormat::Pdf, 200_000.0).is_ok());
+    }
 
     #[cfg(unix)]
     #[test]

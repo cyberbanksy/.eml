@@ -6,10 +6,6 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
-### Added
-
-- Releases are published to crates.io, so `cargo install doteml` works.
-
 ## 0.2.2 - 2026-11-05
 
 ### Fixed

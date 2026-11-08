@@ -73,6 +73,15 @@ pub fn encoded_subject_eml() -> (TempDir, PathBuf) {
     )
 }
 
+/// An email about 70,000 px tall: past JPEG's 65,535 px height limit.
+pub fn tall_eml() -> (TempDir, PathBuf) {
+    write_eml(
+        "tall.eml",
+        "From: sender@example.com\nSubject: Tall\nContent-Type: text/html\n\n\
+         <html><body><div style=\"height:70000px\">tall</div></body></html>\n",
+    )
+}
+
 /// A security-test email with the given HTML body.
 pub fn security_eml(body: &str) -> (TempDir, PathBuf) {
     write_eml(
