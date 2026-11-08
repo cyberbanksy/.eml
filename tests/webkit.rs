@@ -192,3 +192,17 @@ fn webkit_body_cannot_overpaint_header() {
     assert!(!has_red(&pb, 0, header_rows));
     assert!(has_red(&pb, header_rows, pb.1));
 }
+
+#[test]
+fn webkit_refuses_jpg_taller_than_jpeg_allows() {
+    let (d, p) = tall_eml();
+    let out = d.path().join("tall.jpg");
+    webkit()
+        .arg(&p)
+        .args(["-f", "jpg", "-o"])
+        .arg(&out)
+        .assert_logged()
+        .failure()
+        .stderr(contains("65,535"));
+    assert!(!out.exists());
+}
