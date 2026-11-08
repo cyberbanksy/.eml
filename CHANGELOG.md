@@ -6,12 +6,6 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
-### Fixed
-
-- Chrome backend: an email taller than 65,535 px written as JPG left an empty file and reported success; doteml now stops with a clear error (JPEG cannot hold more), and treats any empty render from the browser as a failure.
-- WebKit backend: the same JPG case, and PNGs WebKit cannot encode (around 200,000 px tall), now say why and suggest `-f pdf` or `--backend chrome` instead of "cannot encode WebKit snapshot".
-- Passing a directory or a file with no extension names what was given instead of printing an empty "got:".
-
 ## 0.2.2 - 2026-11-05
 
 ### Fixed
