@@ -427,20 +427,25 @@ pub fn auto_install_macos() -> Result<Option<PathBuf>> {
     let home = home()?;
     let first_run = !auto_setup_marker(&home).exists();
     let installed = auto_install_macos_at(&home, &exe_path()?)?;
-    let mut changed = first_run && macos_installed_at(&home);
-    // Also covers actions installed by 0.2.1/0.2.2, which never got a status entry
-    // and so stayed hidden. Absent-only: a user who switched it off keeps it off.
-    #[cfg(target_os = "macos")]
-    if macos_installed_at(&home)
-        && macos_quick_action_enabled().is_none()
-        && services_prefs::enable_quick_action(services_prefs::PBS_DOMAIN, false).is_ok()
-    {
-        changed = true;
-    }
-    if changed {
+    let rewrote = first_run && macos_installed_at(&home);
+    let shown = macos_installed_at(&home) && show_quick_action_if_unset();
+    if rewrote || shown {
         refresh_macos_services();
     }
     Ok(installed)
+}
+
+/// Writes the "shown in Finder" entry when macOS has none, which also covers
+/// actions installed by 0.2.1/0.2.2. Absent-only: a user who switched it off keeps
+/// it off. Returns whether anything was written.
+fn show_quick_action_if_unset() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        macos_quick_action_enabled().is_none()
+            && services_prefs::enable_quick_action(services_prefs::PBS_DOMAIN, false).is_ok()
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
 }
 
 /// Asks macOS to re-scan `~/Library/Services` so Finder lists the change right away.
