@@ -29,6 +29,11 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/cyberbanksy/.eml/releas
 
 **Homebrew**
 
+```bash
+brew tap cyberbanksy/eml https://github.com/cyberbanksy/.eml
+brew trust cyberbanksy/eml
+brew install doteml
+```
 
 Homebrew 7 refuses to install from a third-party tap until you trust it, which is what `brew trust` does.
 
@@ -48,7 +53,7 @@ Then run `doteml doctor` to confirm a rendering engine was found.
 - **Linux** builds need glibc 2.35 or newer (Ubuntu 22.04, Debian 12, Fedora 36, or later).
 - **macOS** archives downloaded with a browser are quarantined by Gatekeeper ("cannot be opened because the developer cannot be verified"). The installer script and Homebrew are not. To clear a downloaded binary: `xattr -d com.apple.quarantine doteml`.
 - **Verifying a download**: every release archive carries a GitHub build-provenance attestation (`gh attestation verify <archive> --repo cyberbanksy/.eml`) and a CycloneDX SBOM. See [SECURITY.md](SECURITY.md).
-- After upgrading, run `doteml install` again if you use the right-click action.
+- If the right-click action doesn't show up, run `doteml doctor --fix`.
 
 </details>
 
