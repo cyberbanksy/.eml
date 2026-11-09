@@ -134,11 +134,18 @@ struct TestDomain(String);
 #[cfg(target_os = "macos")]
 impl TestDomain {
     fn new() -> Self {
+        // The clock only ticks in microseconds here, so parallel tests need the
+        // counter to get distinct domains.
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        Self(format!("com.doteml.test.{}.{nanos}", std::process::id()))
+        Self(format!(
+            "com.doteml.test.{}.{nanos}.{n}",
+            std::process::id()
+        ))
     }
 
     fn defaults(&self, args: &[&str]) -> std::process::Output {
