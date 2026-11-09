@@ -55,6 +55,9 @@ pub enum Cmd {
     Doctor {
         #[arg(long, value_enum, default_value_t = BackendChoice::Auto, env = "DOTEML_BACKEND")]
         backend: BackendChoice,
+        /// macOS: install the Finder Quick Action, or show it again if it is hidden
+        #[arg(long)]
+        fix: bool,
     },
     /// Check that a PDF still matches the original .eml embedded in it
     Verify {
@@ -152,7 +155,7 @@ pub fn run(cli: Cli) -> ExitCode {
     }
     match cli.cmd {
         Cmd::Convert { common, format } => run_convert(format, common),
-        Cmd::Doctor { backend } => run_doctor(backend),
+        Cmd::Doctor { backend, fix } => run_doctor(backend, fix),
         Cmd::Verify {
             pdfs,
             extract,
@@ -247,7 +250,7 @@ fn run_render_html(file: &Path, output: &Path, format: Format, backend: BackendC
     }
 }
 
-fn run_doctor(backend: BackendChoice) -> ExitCode {
+fn run_doctor(backend: BackendChoice, fix: bool) -> ExitCode {
     match Renderer::new(RenderOptions {
         backend,
         ..Default::default()
@@ -269,13 +272,31 @@ fn run_doctor(backend: BackendChoice) -> ExitCode {
             if cfg!(target_os = "macos")
                 && let Some(home) = dirs::home_dir()
             {
-                if integrations::macos_installed_at(&home) {
+                let installed = integrations::macos_installed_at(&home);
+                let shown = integrations::macos_quick_action_enabled() == Some(true);
+                if fix && !(installed && shown) {
+                    match integrations::install_macos() {
+                        Ok(_) => println!(
+                            "Finder:   Quick Action \"{}\" fixed: right-click an .eml file -> \
+                             Quick Actions",
+                            integrations::ACTION_NAME
+                        ),
+                        Err(e) => eprintln!("Finder:   could not fix the Quick Action: {e}"),
+                    }
+                } else if !installed {
+                    println!("Finder:   Quick Action not installed (run `doteml doctor --fix`)");
+                } else if !shown {
+                    println!(
+                        "Finder:   Quick Action \"{}\" installed but hidden from the right-click \
+                         menu (run `doteml doctor --fix`, or turn it on under Extensions -> \
+                         Finder in System Settings)",
+                        integrations::ACTION_NAME
+                    );
+                } else {
                     println!(
                         "Finder:   Quick Action \"{}\" installed",
                         integrations::ACTION_NAME
                     );
-                } else {
-                    println!("Finder:   Quick Action not installed (run `doteml install`)");
                 }
             }
             ExitCode::SUCCESS
