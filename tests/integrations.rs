@@ -126,6 +126,167 @@ fn macos_auto_install_refreshes_existing_action() {
     assert!(old.join("Contents/Info.plist").exists());
 }
 
+/// A throwaway preferences domain, deleted when dropped so a failing test leaves
+/// nothing behind. The real `pbs` domain is never touched.
+#[cfg(target_os = "macos")]
+struct TestDomain(String);
+
+#[cfg(target_os = "macos")]
+impl TestDomain {
+    fn new() -> Self {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        Self(format!("com.doteml.test.{}.{nanos}", std::process::id()))
+    }
+
+    fn defaults(&self, args: &[&str]) -> std::process::Output {
+        std::process::Command::new("defaults")
+            .arg(args[0])
+            .arg(&self.0)
+            .args(&args[1..])
+            .output()
+            .unwrap()
+    }
+
+    /// The domain as the system sees it, through `defaults export`.
+    fn export(&self) -> plist::Dictionary {
+        let out = self.defaults(&["export", "-"]);
+        assert!(out.status.success(), "{out:?}");
+        plist::Value::from_reader_xml(out.stdout.as_slice())
+            .unwrap()
+            .into_dictionary()
+            .unwrap()
+    }
+
+    fn status(&self) -> plist::Dictionary {
+        self.export()["NSServicesStatus"]
+            .as_dictionary()
+            .unwrap()
+            .clone()
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl Drop for TestDomain {
+    fn drop(&mut self) {
+        self.defaults(&["delete"]);
+        // `defaults delete` empties the domain but leaves its plist behind.
+        if let Some(home) = dirs::home_dir() {
+            let _ = std::fs::remove_file(
+                home.join("Library/Preferences")
+                    .join(format!("{}.plist", self.0)),
+            );
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn seed_status(domain: &TestDomain, key: &str, context_menu: bool) {
+    let out = domain.defaults(&[
+        "write",
+        "NSServicesStatus",
+        &format!(
+            "<dict><key>{key}</key><dict><key>presentation_modes</key><dict>\
+             <key>ContextMenu</key><{context_menu}/></dict></dict></dict>"
+        ),
+    ]);
+    assert!(out.status.success(), "{out:?}");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn quick_action_status_enable_writes_booleans() {
+    use doteml::services_prefs::*;
+    let domain = TestDomain::new();
+    assert_eq!(quick_action_enabled(&domain.0), None);
+
+    enable_quick_action(&domain.0, false).unwrap();
+    assert_eq!(quick_action_enabled(&domain.0), Some(true));
+
+    // pbs ignores the strings "1"/"0", so these must be real booleans.
+    let modes = domain.status()[&quick_action_key()]
+        .as_dictionary()
+        .unwrap()["presentation_modes"]
+        .as_dictionary()
+        .unwrap()
+        .clone();
+    for (mode, on) in [
+        ("ContextMenu", true),
+        ("FinderPreview", true),
+        ("ServicesMenu", true),
+        ("TouchBar", false),
+    ] {
+        assert_eq!(modes[mode], plist::Value::Boolean(on), "{mode}");
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn quick_action_status_respects_an_existing_off_entry_unless_forced() {
+    use doteml::services_prefs::*;
+    let domain = TestDomain::new();
+    seed_status(&domain, &quick_action_key(), false);
+    assert_eq!(quick_action_enabled(&domain.0), Some(false));
+
+    enable_quick_action(&domain.0, false).unwrap();
+    assert_eq!(
+        quick_action_enabled(&domain.0),
+        Some(false),
+        "user's choice kept"
+    );
+
+    enable_quick_action(&domain.0, true).unwrap();
+    assert_eq!(quick_action_enabled(&domain.0), Some(true));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn quick_action_status_leaves_other_entries_alone() {
+    use doteml::services_prefs::*;
+    let domain = TestDomain::new();
+    let other = "(null) - Other Action - runWorkflowAsService";
+    seed_status(&domain, other, true);
+    let out = domain.defaults(&["write", "Unrelated", "-bool", "true"]);
+    assert!(out.status.success(), "{out:?}");
+
+    enable_quick_action(&domain.0, true).unwrap();
+    let status = domain.status();
+    assert!(status.contains_key(other));
+    assert!(status.contains_key(&quick_action_key()));
+    assert_eq!(domain.export()["Unrelated"], plist::Value::Boolean(true));
+
+    remove_quick_action_status(&domain.0).unwrap();
+    assert_eq!(quick_action_enabled(&domain.0), None);
+    let status = domain.status();
+    assert!(status.contains_key(other), "only our entry is removed");
+    assert!(!status.contains_key(&quick_action_key()));
+    assert_eq!(domain.export()["Unrelated"], plist::Value::Boolean(true));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn quick_action_status_force_keeps_a_keyboard_shortcut() {
+    use doteml::services_prefs::*;
+    let domain = TestDomain::new();
+    let key = quick_action_key();
+    let out = domain.defaults(&[
+        "write",
+        "NSServicesStatus",
+        &format!(
+            "<dict><key>{key}</key><dict><key>key_equivalent</key><string>@^e</string>\
+             <key>presentation_modes</key><dict><key>ContextMenu</key><false/></dict></dict></dict>"
+        ),
+    ]);
+    assert!(out.status.success(), "{out:?}");
+
+    enable_quick_action(&domain.0, true).unwrap();
+    assert_eq!(quick_action_enabled(&domain.0), Some(true));
+    let entry = domain.status()[&key].as_dictionary().unwrap().clone();
+    assert_eq!(entry["key_equivalent"].as_string(), Some("@^e"));
+}
+
 #[test]
 fn macos_workflow_is_a_finder_quick_action() {
     let home = tempfile::tempdir().unwrap();

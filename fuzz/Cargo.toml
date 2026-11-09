@@ -9,7 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-lopdf = "0.46.0"
+lopdf = "0.47.0"
 doteml = { path = ".." }
 
 # Keep this crate out of the main package's build

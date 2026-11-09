@@ -8,7 +8,7 @@ cargo build
 cargo run -- doctor
 ```
 
-You need Rust 1.88+ and, for the Chrome backend tests, Chrome/Chromium/Edge (set `DOTEML_BROWSER=/path/to/chrome` to pick one).
+You need Rust 1.88+ and, for the Chrome backend tests, Chrome/Chromium/Edge (set `DOTEML_BROWSER=/path/to/chrome` to pick one). Debug builds skip the macOS first-run Quick Action setup, so `cargo run` never installs an action pointing at `target/debug`.
 
 ## Tests
 

@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use plist::{Dictionary, Value};
 
 use crate::error::{Error, Result};
+#[cfg(target_os = "macos")]
+use crate::services_prefs;
 
 pub const ACTION_NAME: &str = "Convert EML to PDF";
 
@@ -141,6 +143,9 @@ fn strings(items: &[&str]) -> Value {
 
 pub fn install_macos() -> Result<PathBuf> {
     let workflow = install_macos_at(&home()?, &exe_path()?)?;
+    // An explicit install means "show it", even if it was switched off before.
+    #[cfg(target_os = "macos")]
+    services_prefs::enable_quick_action(services_prefs::PBS_DOMAIN, true)?;
     refresh_macos_services();
     Ok(workflow)
 }
@@ -339,7 +344,11 @@ pub fn install_macos_at(home: &Path, exe: &Path) -> Result<PathBuf> {
 }
 
 pub fn uninstall_macos() -> Result<()> {
-    uninstall_macos_at(&home()?)
+    uninstall_macos_at(&home()?)?;
+    // Best-effort: the action is already gone, and a stale entry hides nothing.
+    #[cfg(target_os = "macos")]
+    let _ = services_prefs::remove_quick_action_status(services_prefs::PBS_DOMAIN);
+    Ok(())
 }
 
 pub fn uninstall_macos_at(home: &Path) -> Result<()> {
@@ -356,6 +365,17 @@ pub fn uninstall_macos_at(home: &Path) -> Result<()> {
 /// Whether the Quick Action is installed.
 pub fn macos_installed_at(home: &Path) -> bool {
     macos_workflow(home).exists()
+}
+
+/// Whether Finder is set to show the Quick Action in its right-click menu;
+/// `None` when macOS has no record of it yet.
+pub fn macos_quick_action_enabled() -> Option<bool> {
+    #[cfg(target_os = "macos")]
+    {
+        services_prefs::quick_action_enabled(services_prefs::PBS_DOMAIN)
+    }
+    #[cfg(not(target_os = "macos"))]
+    None
 }
 
 /// Written once doteml has set up the Quick Action by itself (or the user removed
@@ -395,20 +415,45 @@ pub fn auto_install_macos_at(home: &Path, exe: &Path) -> Result<Option<PathBuf>>
 }
 
 /// [`auto_install_macos_at`] for the current user, unless `DOTEML_NO_AUTO_INSTALL`
-/// or `CI` is set.
+/// or `CI` is set. Does nothing in debug builds, so `cargo run` and `cargo test`
+/// never install a Quick Action that points at `target/debug`.
 pub fn auto_install_macos() -> Result<Option<PathBuf>> {
-    if std::env::var_os("DOTEML_NO_AUTO_INSTALL").is_some() || std::env::var_os("CI").is_some() {
+    if cfg!(debug_assertions)
+        || std::env::var_os("DOTEML_NO_AUTO_INSTALL").is_some()
+        || std::env::var_os("CI").is_some()
+    {
         return Ok(None);
     }
-    let installed = auto_install_macos_at(&home()?, &exe_path()?)?;
-    if installed.is_some() {
+    let home = home()?;
+    let first_run = !auto_setup_marker(&home).exists();
+    let installed = auto_install_macos_at(&home, &exe_path()?)?;
+    let rewrote = first_run && macos_installed_at(&home);
+    let shown = macos_installed_at(&home) && show_quick_action_if_unset();
+    if rewrote || shown {
         refresh_macos_services();
     }
     Ok(installed)
 }
 
+/// Writes the "shown in Finder" entry when macOS has none, which also covers
+/// actions installed by 0.2.1/0.2.2. Absent-only: a user who switched it off keeps
+/// it off. Returns whether anything was written.
+fn show_quick_action_if_unset() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        macos_quick_action_enabled().is_none()
+            && services_prefs::enable_quick_action(services_prefs::PBS_DOMAIN, false).is_ok()
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
+}
+
 /// Asks macOS to re-scan `~/Library/Services` so Finder lists the change right away.
 pub fn refresh_macos_services() {
+    // The AppKit call is the supported way and needs no running NSApplication;
+    // `pbs -update` stays as a fallback since neither reports failure.
+    #[cfg(target_os = "macos")]
+    objc2_app_kit::NSUpdateDynamicServices();
     let pbs = Path::new("/System/Library/CoreServices/pbs");
     if cfg!(target_os = "macos") && pbs.exists() {
         let _ = std::process::Command::new(pbs)

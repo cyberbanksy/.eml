@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## Unreleased
 
+### Fixed
+
+- The macOS Quick Action now appears in Finder's right-click menu: doteml marks it as shown in the services preferences, as Automator does, instead of leaving it off under System Settings → Extensions. Actions installed by 0.2.1 or 0.2.2 are switched on the next time doteml runs, unless you turned them off. `doteml doctor` reports when the action is hidden, and `doteml doctor --fix` shows it again.
+- Debug builds (`cargo run`, `cargo test`) no longer install a Quick Action that points at `target/debug`.
+
 ## 0.2.2 - 2026-11-05
 
 ### Fixed

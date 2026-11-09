@@ -11,6 +11,8 @@ pub mod integrations;
 pub mod parser;
 pub mod pdfmeta;
 pub mod render;
+#[cfg(target_os = "macos")]
+pub mod services_prefs;
 pub mod verify;
 
 pub use convert::{ConvertOptions, Format, convert};
