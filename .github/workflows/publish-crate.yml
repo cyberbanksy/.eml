@@ -31,9 +31,18 @@ jobs:
     env:
       TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
     steps:
+      # Check out the release tag itself, and only a well-formed vX.Y.Z tag: tags can
+      # only be pushed by maintainers, so this never builds untrusted code.
+      - name: Resolve the release tag
+        id: tag
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Not a release tag: $TAG"; exit 1
+          fi
+          echo "ref=refs/tags/$TAG" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag || github.event.workflow_run.head_sha }}
+          ref: ${{ steps.tag.outputs.ref }}
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
