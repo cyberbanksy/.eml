@@ -68,6 +68,21 @@ pub fn wait_for_port(
     Err(cdp_err("Timed out waiting for the browser to start"))
 }
 
+/// How long a cleanly exited launcher's browser gets to publish its DevTools port.
+pub const HANDOFF_GRACE: Duration = Duration::from_secs(10);
+
+/// Is the browser still starting? `exited` is the launched process: `None` while it runs,
+/// `Some(success)` once it exits. Chrome started from an elevated process relaunches
+/// itself to drop privileges and the launcher exits 0, so a clean exit gets
+/// `HANDOFF_GRACE` for the relaunched browser to write the port file.
+pub fn still_starting(exited: Option<bool>, handoff: &mut Option<Instant>) -> bool {
+    match exited {
+        None => true,
+        Some(true) => handoff.get_or_insert_with(Instant::now).elapsed() < HANDOFF_GRACE,
+        Some(false) => false,
+    }
+}
+
 // --- transports ---
 
 enum Transport {
@@ -392,9 +407,17 @@ impl Browser {
         let marker = self.profile.join("DevToolsActivePort");
         let child = &mut self.child;
         let log = &mut self.log;
+        let mut handoff = None;
         let (port, path) = wait_for_port(
             || std::fs::read_to_string(&marker),
-            || matches!(child.try_wait(), Ok(None)),
+            || {
+                let exited = match child.try_wait() {
+                    Ok(None) => None,
+                    Ok(Some(status)) => Some(status.success()),
+                    Err(_) => Some(false),
+                };
+                still_starting(exited, &mut handoff)
+            },
             || {
                 let mut text = String::new();
                 let _ = log.seek(SeekFrom::Start(0));
@@ -440,7 +463,13 @@ impl Browser {
     }
 
     fn child_exited(&mut self) -> bool {
-        !matches!(self.child.try_wait(), Ok(None))
+        match self.child.try_wait() {
+            Ok(None) => false,
+            // On Windows a clean exit can be the launcher handing off to a relaunched
+            // browser (see `still_starting`); a dead browser then shows as a closed socket.
+            Ok(Some(status)) => !(cfg!(windows) && status.success()),
+            Err(_) => true,
+        }
     }
 
     pub fn send(&mut self, method: &str, params: Value, session: Option<&str>) -> Result<Value> {
@@ -541,6 +570,21 @@ impl Browser {
         self.closed = true;
         if let Some(mut t) = self.transport.take() {
             let _ = t.send(&json!({"id": 0, "method": "Browser.close"}).to_string());
+            // Wait for the reply or a dropped connection: closing first can lose the
+            // request, and a relaunched browser has no process handle to kill instead.
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < deadline {
+                match t.recv(Duration::from_millis(100)) {
+                    Ok(Some(text)) => {
+                        let reply: Value = serde_json::from_str(&text).unwrap_or_default();
+                        if reply.get("id").and_then(Value::as_u64) == Some(0) {
+                            break;
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(_) => break,
+                }
+            }
             t.close();
         }
         let deadline = Instant::now() + Duration::from_secs(5);
@@ -554,8 +598,9 @@ impl Browser {
             let _ = self.child.kill();
         }
         let _ = self.child.wait();
-        // Windows may hold profile files briefly after exit.
-        for _ in 0..10 {
+        // Windows may hold profile files briefly after exit, longer when a relaunched
+        // browser (which we hold no handle to) is still closing after Browser.close.
+        for _ in 0..50 {
             let _ = std::fs::remove_dir_all(&self.profile);
             if !self.profile.exists() {
                 break;
