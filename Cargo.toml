@@ -25,7 +25,8 @@ path = "src/main.rs"
 
 [dependencies]
 mail-parser = "=0.11.9"
-lopdf = "0.47.0"
+# no chrono: unmaintained (RUSTSEC-2026-0543), and doteml writes its own PDF dates
+lopdf = { version = "0.47.0", default-features = false, features = ["rayon"] }
 tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
 serde_json = "1.0.154"
 serde = { version = "1", features = ["derive"] }
