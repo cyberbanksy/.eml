@@ -31,18 +31,32 @@ jobs:
     env:
       TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
     steps:
-      # Check out the release tag itself, and only a well-formed vX.Y.Z tag: tags can
-      # only be pushed by maintainers, so this never builds untrusted code.
-      - name: Resolve the release tag
+      # Build the exact commit the release tag points to, pinned by SHA so nothing can
+      # move between this check and the build (time-of-check/time-of-use). Only a
+      # well-formed vX.Y.Z tag in this repository qualifies; tags can only be pushed
+      # by maintainers, so this never builds untrusted code.
+      - name: Resolve the release tag to a commit
         id: tag
+        env:
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Not a release tag: $TAG"; exit 1
           fi
-          echo "ref=refs/tags/$TAG" >> "$GITHUB_OUTPUT"
+          if [ -n "$RUN_REPO" ] && [ "$RUN_REPO" != "$REPO" ]; then
+            echo "::error::Release run came from $RUN_REPO, not $REPO"; exit 1
+          fi
+          sha=$(gh api "repos/$REPO/commits/refs/tags/$TAG" --jq .sha)
+          if [ -n "$RUN_SHA" ] && [ "$sha" != "$RUN_SHA" ]; then
+            echo "::error::Tag $TAG points to $sha, but the release ran on $RUN_SHA"; exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.tag.outputs.ref }}
+          ref: ${{ steps.tag.outputs.sha }}
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
